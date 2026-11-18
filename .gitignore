@@ -11,3 +11,6 @@ memory-8781.ps1
 start-memory-core*.bat
 _drill/
 _agent_test/
+
+memory-core/tests/tmp*/
+source-provenance.jsonl
