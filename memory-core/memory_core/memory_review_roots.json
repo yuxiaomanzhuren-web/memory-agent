@@ -1,0 +1,12 @@
+{
+  "roots": [
+    {
+      "scope": {
+        "bot_id": "<BOT_ID>",
+        "conv_key": "private:<OWNER_ID>",
+        "persona": "鱼小满-病娇"
+      },
+      "root": "E:/小满的工作台"
+    }
+  ]
+}

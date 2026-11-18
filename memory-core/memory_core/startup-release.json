@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "release": "memory-20261118-agent-adapters",
+  "files": {
+    "memory-8781.ps1": "c7ddf745414564c08f42788bd293758bc46dd1080d0403be3db8e205866d950b",
+    "memory-core/pyproject.toml": "1d7cb16f1a5f35e7b1a5ef90a55b2193ffc76e3aa8a24593dcff052c59665800",
+    "memory-core/requirements.txt": "f879521c88c58e9a7712880ac8c32f05567154ecb931f4f343a0b7383047144b",
+    "memory-core/memory_core/server.py": "4fe8f4733c3a759beb635949822d05d537c02c995dac57af0a22610c67428857",
+    "memory-core/memory_core/memory_gates.py": "15c3871cd052273bbf45c0531a3b9a752c3ff250c01fd489d28e669a9a6db59a",
+    "memory-core/memory_core/gate1_recall_units.py": "b96e9c1a5ac52b75f4ed08fbf2d47bc6238132d94f35e21ddf595becd3062498",
+    "memory-core/memory_core/startup_check.py": "de8fa308dbb5d0461bbe97518f52f917fa9b4f8506c1b5cf05ebe9ba908135e6",
+    "memory-core/memory_core/operation_ledger.py": "a779143bc1b6fa29ac1de740da500d8ad38095b5a6389764fbe1da8ac0732380",
+    "memory-core/memory_core/store.py": "903f52fad3bd56dbfecabfd69d96b2324d7d6c4993d54162bffb3b48ec4e209b",
+    "memory-core/memory_core/memory_delete.py": "cd4ff6200fa9dd001494b7b553274dd75e04e103df6576fdbdc758b4e9d7d197",
+    "memory-core/memory_core/memory_retirement.py": "7f229e13a74364a0121e04bbdbdbfbc4eeaaa24139c03009dc5f12604d37ac08",
+    "memory-core/memory_core/memory_pipeline.py": "3ba47c452b67711f435310535308e9bf4c96711eb10c6aa065c0d0c5b51cdf08",
+    "memory-core/memory_core/daybook.py": "706a8766376b6987a8910873303217f74bb70d19a85777400bfc6cc891ed101e",
+    "memory-core/memory_core/scope_auth.py": "c3f3401e41e704c52436a7e14e3c6c9d945d17d6a096f437142ee5d8a8a26547",
+    "memory-core/memory_core/delete_audit.py": "e1b724bb703c5537aa2bbec4ef8429bf04ecaf5e17171f33c64da158bd874c04",
+    "memory-core/memory_core/delete_purge.py": "886ae516e0068b2968b128ddc8cea3eb2759c052f381c6a8bde9f89513a0735b",
+    "memory-core/memory_core/ledger_panel.py": "86cae9f1aa673ecbc1df9727979c13784c17397b062e6c3caec6f44c6cb1ea59",
+    "memory-core/memory_core/console.html": "8fcdbb171549f8852422b674e8c33e8d440ab36463219f35bef3e09ca28a0eec",
+    "memory-core/memory_core/console_api.py": "36b29b6779d03a648b523c4ee89fb345fae468c08430729c7837a4fc0067c84d",
+    "memory-core/memory_core/console_panel.py": "6a750d3cfab2ee1389c06a972589f9038370271cecf219be9a9ce3dc9e82efaa",
+    "memory-core/memory_core/notebook.py": "0e0ed3d2f683a2e882ad099a04a5b10e59b37710e7b250f6065b36eca67dfd3d",
+    "memory-core/memory_core/intent.py": "2fea336eaa9f77df891e5edd98c38b7e552b95684d416498b7fa4d17eeb9420c",
+    "memory-core/memory_core/adapters/__init__.py": "4344bd2b7e68fffb6223f2ecd6510d16be1a8d14e656a0556b31968cc9b5cef5",
+    "memory-core/memory_core/adapters/qq/__init__.py": "deacdece8bf0c8fd31d0f3959dcdc600263da9ea5773b04f5bdf53d8139f70b3",
+    "memory-core/memory_core/memory_evidence.py": "abfd4d3140b63b3d98be89b0c1ea0d94385ab6a501b0413f261d39cdfbf60924",
+    "memory-core/memory_core/rawlog.py": "82005a6de9f7c05fb40759aabf7d264dc55272d73b3f3ac76de26e61fd845ad1",
+    "memory-core/memory_core/source_provenance.py": "c355f9432ac58c2b4757694e68b6bdb14f3550d1043c744f4da83f11b6485296"
+  }
+}
