@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>记忆大脑 · 可视化</title>
+<style>
+  :root {
+    --bg: #080a10;
+    --panel: #12161f;
+    --panel-2: #171c27;
+    --line: #232a38;
+    --text: #e9edf5;
+    --muted: #8b94a7;
+    --dim: #5f6779;
+    --pink: #ff6f9c;
+    --blue: #6ea8fe;
+    --violet: #a78bfa;
+    --green: #45d19a;
+    --amber: #f5b544;
+    --red: #f26d6d;
+    --cyan: #4fd6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 12% -10%, #191f2e 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 26px 22px 56px; }
+
+  header { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 21px; margin: 0; letter-spacing: .3px; font-weight: 650; }
+  h1 span { color: var(--pink); }
+  .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .spacer { flex: 1; }
+  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(69,209,154,.12); }
+  .dot.off { background: var(--red); box-shadow: 0 0 0 4px rgba(242,109,109,.12); }
+  button.ghost {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 13px; font-size: 12.5px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  button.ghost:hover { border-color: #35405a; background: #1b2130; }
+
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+  .tile {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px;
+  }
+  .tile .k { font-size: 11.5px; color: var(--muted); letter-spacing: .4px; }
+  .tile .v { font-size: 24px; font-weight: 650; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .tile .m { font-size: 11.5px; color: var(--dim); }
+  .tile .v small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 13px; margin: 0 0 13px; font-weight: 600; color: #cfd6e4;
+    display: flex; align-items: center; gap: 8px; letter-spacing: .5px;
+  }
+  .card h2 .hint { font-weight: 400; color: var(--dim); font-size: 11.5px; letter-spacing: 0; }
+  .card h2::before { content: ""; width: 3px; height: 12px; border-radius: 2px; background: var(--pink); }
+
+  /* ── 3D 星图 ───────────────────────────────── */
+  .space-card { padding-bottom: 14px; }
+  .space-tools { margin-left: auto; display: flex; gap: 7px; }
+  button.mini {
+    background: #151b26; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 7px; padding: 3px 10px; font-size: 11.5px; cursor: pointer; letter-spacing: 0;
+    transition: all .15s; font-weight: 400;
+  }
+  button.mini:hover { color: var(--text); border-color: #35405a; }
+  button.mini.on { color: #0d1118; background: var(--cyan); border-color: var(--cyan); font-weight: 650; }
+  .sky-search {
+    background: #151b26; border: 1px solid var(--line); color: var(--text);
+    border-radius: 7px; padding: 3px 9px; font-size: 11.5px; outline: none; width: 104px;
+    transition: border-color .15s, width .15s; font-family: inherit;
+  }
+  .sky-search:focus { border-color: var(--cyan); width: 132px; }
+  .sky-search::placeholder { color: var(--dim); }
+  .space-detail .ent { cursor: pointer; transition: all .12s; }
+  .space-detail .ent:hover { color: var(--pink); border-color: var(--pink); }
+
+  .space {
+    position: relative; height: 470px; border-radius: 12px; overflow: hidden;
+    background:
+      radial-gradient(700px 380px at 50% 45%, rgba(45,80,140,.16) 0%, rgba(6,8,14,0) 62%),
+      radial-gradient(1100px 600px at 82% 110%, rgba(120,50,120,.12) 0%, rgba(6,8,14,0) 60%),
+      #05070c;
+    border: 1px solid #1a2130;
+  }
+  #sky { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #sky.grabbing { cursor: grabbing; }
+
+  .space-tip {
+    position: absolute; pointer-events: none; opacity: 0; transform: translateY(4px);
+    transition: opacity .12s, transform .12s;
+    max-width: 290px; padding: 7px 10px; border-radius: 9px;
+    background: rgba(12,17,26,.95); border: 1px solid #2c3549;
+    font-size: 12px; color: #dbe2ee; box-shadow: 0 10px 26px rgba(0,0,0,.5); z-index: 3;
+  }
+  .space-tip.show { opacity: 1; transform: translateY(0); }
+  .space-tip .th { font-size: 11px; color: var(--dim); margin-bottom: 2px; }
+
+  .space-detail {
+    position: absolute; right: 13px; top: 13px; width: 300px; max-height: 78%;
+    overflow-y: auto; display: none; z-index: 4;
+    background: rgba(13,18,27,.96); border: 1px solid #2a3346; border-radius: 12px;
+    padding: 12px 14px; box-shadow: 0 16px 40px rgba(0,0,0,.55); backdrop-filter: blur(4px);
+  }
+  .space-detail.show { display: block; }
+  .space-detail::-webkit-scrollbar { width: 6px; }
+  .space-detail::-webkit-scrollbar-thumb { background: #2a3346; border-radius: 6px; }
+  .dt-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .dt-head .sp { flex: 1; }
+  .dt-x {
+    background: transparent; border: 0; color: var(--dim); font-size: 17px; line-height: 1;
+    cursor: pointer; padding: 0 2px;
+  }
+  .dt-x:hover { color: var(--text); }
+  .dt-text { font-size: 12.8px; color: #dbe2ee; white-space: pre-wrap; word-break: break-word; }
+  .dt-meta { font-size: 11px; color: var(--dim); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .dt-ents { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .dt-list { margin-top: 8px; }
+  .dt-list a {
+    display: block; padding: 7px 0; border-bottom: 1px solid rgba(38,46,61,.7);
+    font-size: 12.2px; color: #c6d0e0; cursor: pointer; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dt-list a:hover { color: var(--pink); }
+  .dt-list a small { color: var(--dim); font-size: 10.5px; margin-left: 6px; }
+
+  .space-legend {
+    position: absolute; left: 13px; bottom: 12px; display: flex; gap: 12px;
+    flex-wrap: wrap; font-size: 10.8px; color: #7d879b; z-index: 2;
+  }
+  .space-legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+  .space-help {
+    position: absolute; right: 13px; bottom: 11px; font-size: 10.8px; color: #565f72; z-index: 2;
+    letter-spacing: .2px;
+  }
+  .space-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--dim); font-size: 12.5px; pointer-events: none;
+  }
+
+  .grid { display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; align-items: start; }
+
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    font-size: 12px; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); color: var(--muted); background: transparent; transition: all .15s;
+  }
+  .chip:hover { color: var(--text); border-color: #35405a; }
+  .chip.on { color: #0c1017; background: var(--pink); border-color: var(--pink); font-weight: 600; }
+  .chip .n { opacity: .6; margin-left: 5px; font-size: 11px; }
+
+  .stream { max-height: 520px; overflow-y: auto; margin: -4px -6px 0; padding: 0 6px; }
+  .stream::-webkit-scrollbar { width: 8px; }
+  .stream::-webkit-scrollbar-thumb { background: #262e3d; border-radius: 8px; }
+  .item {
+    display: grid; grid-template-columns: 62px 1fr; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid rgba(35,42,56,.7);
+  }
+  .item:last-child { border-bottom: 0; }
+  .item.flash { background: rgba(255,111,156,.07); box-shadow: inset 0 0 0 1px rgba(255,111,156,.25); border-radius: 8px; }
+  .item .time { color: var(--dim); font-size: 11.5px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .item .body { min-width: 0; }
+  .item .top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 5px; font-weight: 600; }
+  .badge.episode { color: var(--blue); background: rgba(110,168,254,.12); }
+  .badge.preference { color: var(--pink); background: rgba(255,111,156,.12); }
+  .badge.reflection { color: var(--violet); background: rgba(167,139,250,.13); }
+  .badge.other { color: var(--muted); background: #1c2230; }
+  .item .text { color: #dbe2ee; white-space: pre-wrap; word-break: break-word; }
+  .item .text.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .item .meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .imp { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 11px; }
+  .imp .bar { width: 46px; height: 4px; border-radius: 3px; background: #222a39; overflow: hidden; }
+  .imp .bar i { display: block; height: 100%; background: linear-gradient(90deg, #4a7bd6, var(--pink)); }
+  .ent { font-size: 11px; color: #9fb0cc; border: 1px solid #2a3346; border-radius: 999px; padding: 0 7px; }
+  .idtag { font-size: 11px; color: #4f5769; font-variant-numeric: tabular-nums; }
+
+  .life-row { margin-bottom: 11px; }
+  .life-row .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .life-row .lab b { color: #cfd6e4; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .track { height: 6px; background: #1b2231; border-radius: 4px; overflow: hidden; }
+  .track i { display: block; height: 100%; border-radius: 4px; transition: width .5s ease; }
+  .moodline { margin-top: 12px; padding: 10px 12px; background: #10151e; border: 1px solid #1e2634; border-radius: 10px; font-size: 12.5px; color: #c3ccdb; }
+
+  .health { font-size: 12.5px; color: #c3ccdb; }
+  .loops { font-size: 12.5px; color: #c3ccdb; }
+  .loops ol { margin: 0; padding-left: 18px; }
+  .loops li { margin-bottom: 8px; line-height: 1.55; }
+  .loops .tag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 6px; margin-right: 6px; background: #1b2434; color: #8fa3c0; }
+  .loops .due { font-size: 11.5px; margin-left: 6px; color: var(--amber); }
+  .loops .due.over { color: #ff6f9c; }
+  .health ul { margin: 0; padding-left: 16px; }
+  .health li { margin-bottom: 5px; }
+  .health li.warn { color: var(--amber); }
+  .health li.ok { color: #93a0b5; }
+
+  .searchbar { display: flex; gap: 9px; margin-bottom: 12px; }
+  .searchbar input {
+    flex: 1; background: #0e131c; border: 1px solid var(--line); color: var(--text);
+    border-radius: 9px; padding: 9px 13px; font-size: 13.5px; outline: none; font-family: inherit;
+  }
+  .searchbar input:focus { border-color: #3b4a6b; }
+  .searchbar button {
+    background: var(--pink); color: #10141b; border: 0; border-radius: 9px; padding: 0 18px;
+    font-size: 13px; font-weight: 650; cursor: pointer;
+  }
+  .searchbar button:hover { filter: brightness(1.06); }
+  .hits .hit { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(35,42,56,.7); }
+  .hits .hit:last-child { border-bottom: 0; }
+  .hit .score { font-variant-numeric: tabular-nums; font-weight: 650; color: var(--pink); font-size: 13px; padding-top: 1px; }
+  .hit .score.low { color: var(--blue); }
+  .hit .txt { font-size: 13px; color: #dbe2ee; }
+  .hit .sub2 { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .empty { color: var(--dim); font-size: 12.5px; padding: 10px 0; }
+
+  .foot { color: #4a5265; font-size: 11.5px; text-align: center; margin-top: 24px; }
+  .banner {
+    display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 10px;
+    background: rgba(242,109,109,.1); border: 1px solid rgba(242,109,109,.3); color: #ffb0b0; font-size: 12.5px;
+  }
+  .banner.show { display: block; }
+
+  @media (max-width: 980px) {
+    .grid { grid-template-columns: 1fr; }
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .space { height: 380px; }
+    .space-detail { width: 240px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>记忆<span>大脑</span></h1>
+      <div class="sub">memory-core · 鱼小满的记忆、生活层与图谱的实时视图</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="live"><span class="dot" id="dot"></span><span id="liveText">连接中…</span></div>
+    <button class="ghost" id="refresh">刷新</button>
+  </header>
+
+  <div class="banner" id="banner">连不上记忆服务（8780）。确认服务在跑：<code>http://127.0.0.1:8780</code></div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">记忆</div><div class="v" id="t-active">–</div><div class="m" id="t-today">–</div></div>
+    <div class="tile"><div class="k">实体</div><div class="v" id="t-ent">–</div><div class="m">图谱节点</div></div>
+    <div class="tile"><div class="k">关系</div><div class="v" id="t-rel">–</div><div class="m">共现边</div></div>
+    <div class="tile"><div class="k">向量</div><div class="v" id="t-vec">–</div><div class="m" id="t-vecm">语义检索</div></div>
+    <div class="tile"><div class="k">平均重要性</div><div class="v" id="t-imp">–</div><div class="m">0–1</div></div>
+  </div>
+
+  <div class="card space-card">
+    <h2>记忆星图 <span class="hint" id="graphHint"></span>
+      <span class="space-tools">
+        <input id="skySearch" class="sky-search" placeholder="搜实体…" />
+        <button class="mini on" id="spinBtn">自动旋转</button>
+        <button class="mini" id="resetBtn">重置视角</button>
+      </span>
+    </h2>
+    <div class="space" id="space">
+      <canvas id="sky"></canvas>
+      <div class="space-empty" id="spaceEmpty" style="display:none">还没有实体。多说几句「我喜欢 / 记住」这类话，星图就会长出来。</div>
+      <div class="space-tip" id="tip"></div>
+      <div class="space-detail" id="detail"></div>
+      <div class="space-legend" id="legend"></div>
+      <div class="space-help">拖拽旋转 · 滚轮缩放 · 点节点看详情 · 外圈时间环＝没挂实体的记忆（越外越早）</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>记忆流 <span class="hint" id="streamHint"></span></h2>
+        <div class="chips" id="chips"></div>
+        <div class="stream" id="stream"></div>
+      </div>
+      <div class="card">
+        <h2>检索试跑 <span class="hint">拿一句话问，看召回分数</span></h2>
+        <div class="searchbar">
+          <input id="q" placeholder="比如：她说想让我少刷点抖音视频" />
+          <button id="go">召回</button>
+        </div>
+        <div class="hits" id="hits"><div class="empty">还没查过。回车或点召回。</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>她手上没做完的事 <span class="hint" id="loopHint">open_loops</span></h2>
+        <div class="loops" id="loops"><div class="empty">清单是空的。</div></div>
+      </div>
+
+      <div class="card">
+        <h2>她现在的状态 <span class="hint">life/state</span></h2>
+        <div id="life"></div>
+        <div class="moodline" id="moodline">–</div>
+      </div>
+
+      <div class="card">
+        <h2>记忆体检 <span class="hint">/health</span></h2>
+        <div class="health" id="health">–</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">数据每 15 秒自动刷新 · 面板只读，不会写入记忆</div>
+</div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const OWNER = '鱼小满';            // 记忆的主人：星图中心就是她
+const KIND_NAME = { episode: '情节', preference: '偏好', reflection: '反思', fact: '事实', plan: '计划' };
+const ENT_NAME = { person: '人物', thing: '物件', topic: '话题', place: '地点', skill: '技能' };
+const KIND_COLOR = { episode: '#4fd6ff', preference: '#ff6f9c', reflection: '#a78bfa', fact: '#ffd166', plan: '#45d19a' };
+const ENT_COLOR = { person: '#00e5ff', thing: '#ffb020', topic: '#b967ff', place: '#39ff8f', skill: '#ff3d81' };
+const state = { stats: null, graph: null, life: null, health: null, filter: 'all', expanded: new Set() };
+
+function api(path, opts) {
+  const url = path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
+  return fetch(url, opts).then(async (r) => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then((j) => {
+    if (j && j.status === 'error') throw new Error(j.message || 'service error');
+    return j;
+  });
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const p = (n) => String(n).padStart(2, '0');
+  return (sameYear ? '' : d.getFullYear() + '-') + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function setLive(ok, text) {
+  document.getElementById('dot').className = 'dot' + (ok ? '' : ' off');
+  document.getElementById('liveText').textContent = text;
+  document.getElementById('banner').className = 'banner' + (ok ? '' : ' show');
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ── 星图引擎 ───────────────────────────────────────────
+const Sky = (() => {
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+  const tipEl = document.getElementById('tip');
+  const detailEl = document.getElementById('detail');
+  const legendEl = document.getElementById('legend');
+  const emptyEl = document.getElementById('spaceEmpty');
+  const spaceEl = document.getElementById('space');
+
+  let W = 0, H = 0, DPR = 1, stars = [];
+  let yaw = 0.55, pitch = -0.2, zoom = 1, panX = 0, panY = 0;
+  let nodes = [], edges = [], byKey = new Map(), screen = [];
+  let hoverKey = null, selKey = null;
+  let drag = false, moved = false, downX = 0, downY = 0, lastX = 0, lastY = 0;
+  let spin = true, idleAt = 0;
+  let memByKey = new Map(), entByKey = new Map();
+
+  const rnd = () => Math.random() * 2 - 1;
+  function unit(v) {
+    const L = Math.hypot(v[0], v[1], v[2]) || 1;
+    return [v[0] / L, v[1] / L, v[2] / L];
+  }
+  function randUnit() { return unit([rnd(), rnd(), rnd()]); }
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    canvas.width = Math.max(1, Math.round(W * DPR));
+    canvas.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    stars = [];
+    const n = Math.min(260, Math.round((W * H) / 5200));
+    for (let i = 0; i < n; i++) {
+      stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() < .86 ? .6 : 1.2, a: .12 + Math.random() * .4, ph: Math.random() * 6.28 });
+    }
+  }
+
+  function project(n) {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const x1 = n.x * cy - n.z * sy;
+    const z1 = n.x * sy + n.z * cy;
+    const y2 = n.y * cp - z1 * sp;
+    const z2 = n.y * sp + z1 * cp;
+    const f = 800;
+    const s = f / Math.max(160, f + z2 + 640);
+    return { x: W / 2 + panX + x1 * s * zoom, y: H / 2 + panY + y2 * s * zoom, s: s * zoom, z: z2 };
+  }
+
+  function setData(g) {
+    const ents = (g && g.nodes) || [];
+    const mems = (g && g.memories) || [];
+    const entEdges = (g && g.edges) || [];
+    memByKey = new Map(mems.map((m) => ['m' + m.id, m]));
+    entByKey = new Map(ents.map((e) => ['e' + e.id, e]));
+    const prev = new Map(nodes.map((n) => [n.key, n]));
+    const next = [];
+
+    const core = prev.get('core') || { key: 'core', kind: 'core', x: 0, y: 0, z: 0, r: 13 };
+    core.kind = 'core';
+    core.name = OWNER;
+    next.push(core);
+
+    const groups = new Map();
+    // 名字就是主人本人的实体（归一后必然存在一条「鱼小满」）不单独画成环绕星，
+    // 中心光核已经是她；这些记忆改为贴着核心绕，避免出现两个同名节点。
+    const selfIds = new Set(ents.filter((e) => e.name === OWNER).map((e) => 'e' + e.id));
+    ents.filter((e) => e.name !== OWNER).forEach((e) => {
+      const l = groups.get(e.type) || [];
+      l.push(e); groups.set(e.type, l);
+    });
+    const DIR = {
+      person: [0.15, 1, 0.1], thing: [1, 0.12, 0.25],
+      topic: [-0.9, 0.28, 0.55], place: [0.25, -1, -0.28], skill: [-0.35, 0.1, -1],
+    };
+    const base = ents.length > 8 ? 190 : 165;
+    groups.forEach((list, type) => {
+      const d = unit(DIR[type] || randUnit());
+      list.forEach((e, i) => {
+        const key = 'e' + e.id;
+        const old = prev.get(key);
+        if (old) {
+          old.name = e.name; old.degree = e.degree || 1; old.type = type;
+          old.kind = 'entity'; old.r = 4.5 + Math.min(7, (e.degree || 1) * 1.2);
+          next.push(old); return;
+        }
+        const off = i === 0 ? [0, 0, 0] : randUnit().map((v) => v * (34 + i * 15));
+        next.push({
+          key, kind: 'entity', type, name: e.name, degree: e.degree || 1,
+          x: d[0] * base + off[0], y: d[1] * base + off[1], z: d[2] * base + off[2],
+          r: 4.5 + Math.min(7, (e.degree || 1) * 1.2),
+        });
+      });
+    });
+
+    const entKeys = new Set(next.filter((n) => n.kind === 'entity').map((n) => n.key));
+    const loose = [];
+    mems.forEach((m) => {
+      const key = 'm' + m.id;
+      const old = prev.get(key);
+      if (old) {
+        old.kind = 'memory'; old.type = m.kind; old.text = m.text;
+        old.importance = m.importance; old.created_at = m.created_at; old.entities = m.entities || [];
+        old.r = 2.4 + clamp(Number(m.importance) || 0, 0, 1) * 3.2;
+        next.push(old); return;
+      }
+      const anchors = (m.entities || []).map((id) => (selfIds.has('e' + id) ? 'core' : 'e' + id))
+        .filter((k) => k === 'core' || entKeys.has(k));
+      if (anchors.length) {
+        const a = next.find((n) => n.key === anchors[0]);
+        const off = randUnit().map((v) => v * (52 + Math.random() * 46));
+        next.push({
+          key, kind: 'memory', type: m.kind, text: m.text, importance: m.importance,
+          created_at: m.created_at, entities: m.entities || [],
+          x: a.x + off[0], y: a.y + off[1], z: a.z + off[2],
+          r: 2.4 + clamp(Number(m.importance) || 0, 0, 1) * 3.2,
+        });
+      } else {
+        loose.push(m);
+      }
+    });
+    // 没挂上实体的记忆：进黄道时间环——新的在内圈、老的在外圈，均匀铺开。
+    // 不再随机撒球壳（那是一锅粥的主因）；环还给了星图一条时间轴。
+    if (loose.length) {
+      loose.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+      const oldest = loose[0].created_at || 0;
+      const newest = loose[loose.length - 1].created_at || 1;
+      loose.forEach((m, i) => {
+        const key = 'm' + m.id;
+        const frac = newest > oldest ? ((m.created_at || 0) - oldest) / (newest - oldest) : 0.5;
+        const radius = 148 + (1 - frac) * 128;
+        const ang = (i / loose.length) * Math.PI * 2;
+        const pos = [Math.cos(ang) * radius, Math.sin(ang * 2 + 1) * 12, Math.sin(ang) * radius];
+        const old = prev.get(key);
+        const base = {
+          kind: 'memory', type: m.kind, text: m.text, importance: m.importance,
+          created_at: m.created_at, entities: m.entities || [], orbit: true,
+          r: 2.4 + clamp(Number(m.importance) || 0, 0, 1) * 3.2,
+        };
+        if (old) { Object.assign(old, base, { x: pos[0], y: pos[1], z: pos[2] }); next.push(old); }
+        else next.push(Object.assign({ key, x: pos[0], y: pos[1], z: pos[2] }, base));
+      });
+    }
+
+    nodes = next;
+    byKey = new Map(nodes.map((n) => [n.key, n]));
+
+    const es = [];
+    nodes.forEach((n) => { if (n.kind === 'entity') es.push({ a: 'core', b: n.key, w: .55, tone: 'core' }); });
+    mems.forEach((m) => {
+      const mk = 'm' + m.id;
+      if (!byKey.has(mk)) return;
+      (m.entities || []).forEach((id) => {
+        if (selfIds.has('e' + id)) { es.push({ a: mk, b: 'core', w: .8, tone: 'core' }); return; }
+        const k = 'e' + id;
+        if (byKey.has(k)) es.push({ a: mk, b: k, w: 1.05, tone: 'mem' });
+      });
+    });
+    entEdges.forEach((e) => {
+      const a = 'e' + e.src, b = 'e' + e.dst;
+      if (byKey.has(a) && byKey.has(b)) es.push({ a, b, w: Math.min(2.4, .7 + (e.weight || 1) * .45), tone: 'co' });
+    });
+    edges = es;
+
+    emptyEl.style.display = mems.length ? 'none' : 'flex';
+    renderLegend(ents, mems);
+    if (selKey && !byKey.has(selKey)) closeDetail();
+    if (hoverKey && !byKey.has(hoverKey)) { hoverKey = null; hideTip(); }
+  }
+
+  function renderLegend(ents, mems) {
+    const cEnt = {};
+    ents.forEach((e) => { cEnt[e.type] = (cEnt[e.type] || 0) + 1; });
+    const cMem = {};
+    mems.forEach((m) => { cMem[m.kind] = (cMem[m.kind] || 0) + 1; });
+    let s = Object.keys(cEnt).map((t) =>
+      '<span><i style="background:' + (ENT_COLOR[t] || '#8b94a7') + '"></i>' + (ENT_NAME[t] || t) + ' ' + cEnt[t] + '</span>').join('');
+    s += Object.keys(cMem).map((k) =>
+      '<span><i style="background:' + (KIND_COLOR[k] || '#8b94a7') + '"></i>' + (KIND_NAME[k] || k) + ' ' + cMem[k] + '</span>').join('');
+    legendEl.innerHTML = s;
+  }
+
+  function colorOf(n) {
+    if (n.kind === 'core') return '#eafcff';
+    if (n.kind === 'entity') return ENT_COLOR[n.type] || '#9fb0cc';
+    return KIND_COLOR[n.type] || '#8b94a7';
+  }
+
+  function draw(now) {
+    if (!W || !H) return;
+    const t = now - idleAt;
+    if (spin && !drag && !selKey && t > 3200) yaw += 0.0016;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // stars
+    for (const s of stars) {
+      const tw = 0.55 + 0.45 * Math.sin(now / 1400 + s.ph);
+      ctx.globalAlpha = s.a * tw;
+      ctx.fillStyle = '#cfe3ff';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 黄道环参考线：时间环记忆的轨道带（只有存在轨道记忆时才画）
+    if (nodes.some((n) => n.orbit)) {
+      ctx.strokeStyle = 'rgba(120,150,210,.10)';
+      ctx.lineWidth = 1;
+      for (const rr of [162, 262]) {
+        ctx.beginPath();
+        for (let i = 0; i <= 72; i++) {
+          const a = (i / 72) * Math.PI * 2;
+          const p = project({ x: Math.cos(a) * rr, y: 0, z: Math.sin(a) * rr });
+          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    screen = nodes.map((n) => ({ n, p: project(n) }));
+    const cam = new Map(screen.map((s) => [s.n.key, s]));
+
+    const hot = selKey || hoverKey;
+    const near = new Set();
+    if (hot) {
+      near.add(hot);
+      edges.forEach((e) => { if (e.a === hot) near.add(e.b); if (e.b === hot) near.add(e.a); });
+    }
+
+    // edges
+    const drawn = [];
+    edges.forEach((e) => {
+      const A = cam.get(e.a), B = cam.get(e.b);
+      if (!A || !B) return;
+      drawn.push({ e, A, B, z: (A.p.z + B.p.z) / 2 });
+    });
+    drawn.sort((m, n) => n.z - m.z);
+    drawn.forEach(({ e, A, B }) => {
+      const isHot = hot && (e.a === hot || e.b === hot);
+      const depthA = clamp(1 - (A.p.z + 300) / 620, .12, 1);
+      let col, alpha, wid;
+      if (e.tone === 'co') { col = '120,150,200'; alpha = .28; wid = e.w; }
+      else if (e.tone === 'core') { col = '140,200,255'; alpha = .16; wid = e.w; }
+      else { col = '170,190,230'; alpha = .22; wid = e.w; }
+      if (isHot) { alpha = .85; wid = Math.max(1.4, wid * 1.6); }
+      ctx.strokeStyle = 'rgba(' + (isHot ? '255,140,180' : col) + ',' + (alpha * (.45 + .55 * depthA)).toFixed(3) + ')';
+      ctx.lineWidth = wid * ((A.p.s + B.p.s) / 2);
+      ctx.beginPath(); ctx.moveTo(A.p.x, A.p.y); ctx.lineTo(B.p.x, B.p.y); ctx.stroke();
+    });
+
+    // nodes, far first
+    const order = screen.slice().sort((a, b) => b.p.z - a.p.z);
+    const coreScr = cam.get('core');
+    order.forEach(({ n, p }) => {
+      const depth = clamp(1 - (p.z + 300) / 620, .1, 1);
+      const r = Math.max(1, n.r * p.s);
+      const col = colorOf(n);
+
+      if (n.kind === 'core') {
+        const pulse = 1 + 0.07 * Math.sin(now / 780);
+        // 外层把她整个人包住的光晕
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 72 * p.s * pulse);
+        g.addColorStop(0, 'rgba(214,244,255,.95)');
+        g.addColorStop(.2, 'rgba(120,205,255,.55)');
+        g.addColorStop(.55, 'rgba(70,130,220,.18)');
+        g.addColorStop(1, 'rgba(70,130,220,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 72 * p.s * pulse, 0, 6.2832); ctx.fill();
+
+        // 两道缓慢反向旋转的轨道环，暗示「她在中心」
+        for (let k = 0; k < 2; k++) {
+          const rr = (34 + k * 13) * p.s;
+          const rot = now / (5200 + k * 2600) * (k ? -1 : 1);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(rot);
+          ctx.strokeStyle = 'rgba(150,215,255,' + (0.18 - k * 0.06).toFixed(2) + ')';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rr, rr * 0.38, 0, 0, 6.2832);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.fillStyle = 'rgba(246,254,255,.98)';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 8 * p.s, 0, 6.2832); ctx.fill();
+
+        ctx.textAlign = 'center';
+        ctx.font = '600 13px -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif';
+        ctx.fillStyle = 'rgba(236,249,255,.94)';
+        ctx.fillText(n.name || OWNER, p.x, p.y + 52 * p.s);
+        ctx.font = '10.5px -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif';
+        ctx.fillStyle = 'rgba(150,200,232,.55)';
+        ctx.fillText('这些记忆都属于她', p.x, p.y + 67 * p.s);
+        return;
+      }
+
+      if (n.kind === 'entity') {
+        ctx.globalAlpha = .16 + .5 * depth;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.1, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = .55 + .45 * depth;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = 1;
+        // ring
+        ctx.strokeStyle = col;
+        ctx.globalAlpha = .3 + .4 * depth;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.9, 0, 6.2832); ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        const farFromCore = !coreScr || Math.hypot(p.x - coreScr.p.x, p.y - coreScr.p.y) > 84;
+        const wantLabel = (hot && near.has(n.key)) || zoom > 1.25 || n.degree > 1;
+        if (wantLabel && (farFromCore || (hot && (hot === n.key || near.has(n.key))))) {
+          ctx.font = '11px -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = 'rgba(228,236,248,' + (.45 + .5 * depth).toFixed(2) + ')';
+          ctx.fillText(n.name, p.x, p.y + r * 2 + 14);
+        }
+      } else {
+        const fresh = (n.created_at || 0) > (Date.now() / 1000 - 86400);
+        let seed = 0;
+        for (let i = 0; i < n.key.length; i++) seed = (seed * 31 + n.key.charCodeAt(i)) % 997;
+        const glow = fresh ? (0.75 + 0.25 * Math.sin(now / 900 + seed)) : 1;
+        ctx.globalAlpha = (0.45 + 0.5 * depth) * glow;
+        ctx.fillStyle = col;
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 8 * p.s * glow;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+
+      if (n.key === selKey) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.globalAlpha = .9;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 6.2832); ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else if (n.key === hoverKey) {
+        ctx.strokeStyle = 'rgba(255,255,255,.75)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 4, 0, 6.2832); ctx.stroke();
+      }
+    });
+  }
+
+  function frame(now) {
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  function nodeAt(mx, my) {
+    let best = null, bd = 1e9;
+    for (const { n, p } of screen) {
+      const d = Math.hypot(p.x - mx, p.y - my);
+      const rad = n.kind === 'core' ? Math.max(17, 30 * p.s) : Math.max(9, n.r * p.s + 6);
+      if (d < rad && d < bd) { bd = d; best = n; }
+    }
+    return best;
+  }
+
+  function showTip(n, mx, my) {
+    const r = spaceEl.getBoundingClientRect();
+    let html = '';
+    if (n.kind === 'core') {
+      const cnt = nodes.filter((x) => x.kind === 'memory').length;
+      html = '<div class="th">记忆的主人</div><div style="font-weight:600">' + esc(n.name || OWNER) +
+        '</div><div style="color:#5f6779;font-size:11px;margin-top:2px">' + cnt + ' 条记忆都在她这儿</div>';
+    } else if (n.kind === 'entity') {
+      html = '<div class="th">' + (ENT_NAME[n.type] || n.type) + ' · 关联 ' + (n.degree || 0) + ' 条记忆</div>' +
+        '<div style="font-weight:600">' + esc(n.name) + '</div>';
+    } else {
+      const m = memByKey.get(n.key) || {};
+      html = '<div class="th">' + (KIND_NAME[n.type] || n.type) + ' · ' + fmtTime(m.created_at) + '</div>' +
+        esc(String(m.text || '').slice(0, 88)) + (String(m.text || '').length > 88 ? '…' : '');
+    }
+    tipEl.innerHTML = html;
+    tipEl.classList.add('show');
+    const tw = tipEl.offsetWidth || 220, th = tipEl.offsetHeight || 50;
+    let x = mx + 16, y = my + 14;
+    if (x + tw > r.width - 8) x = mx - tw - 14;
+    if (y + th > r.height - 8) y = my - th - 12;
+    tipEl.style.left = Math.max(6, x) + 'px';
+    tipEl.style.top = Math.max(6, y) + 'px';
+  }
+  function hideTip() { tipEl.classList.remove('show'); }
+
+  function openDetail(n, extraCands) {
+    if (n.kind === 'core') {
+      const mems = nodes.filter((x) => x.kind === 'memory').sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      const entN = nodes.filter((x) => x.kind === 'entity').length;
+      detailEl.innerHTML =
+        '<div class="dt-head"><span class="badge preference">记忆的主人</span><span class="sp"></span>' +
+        '<button class="dt-x" data-close="1">×</button></div>' +
+        '<div class="dt-text" style="font-size:17px;font-weight:650">' + esc(n.name || OWNER) + '</div>' +
+        '<div class="dt-meta">' + mems.length + ' 条记忆 · ' + entN + ' 个实体 · 都长在她身上</div>' +
+        '<div class="dt-list">' + mems.slice(0, 8).map((m) =>
+          '<a data-mem="' + esc(m.key) + '">' + esc(String(m.text || '').slice(0, 40)) +
+          '<small>' + fmtTime(m.created_at) + '</small></a>').join('') + '</div>';
+      detailEl.classList.add('show');
+      detailEl.querySelectorAll('[data-close]').forEach((b) => { b.onclick = closeDetail; });
+      detailEl.querySelectorAll('[data-mem]').forEach((a) => {
+        a.onclick = () => { const k = a.dataset.mem; const t = byKey.get(k); if (t) { selKey = k; openDetail(t); } };
+      });
+      return;
+    }
+    if (n.kind === 'entity') {
+      const list = nodes.filter((x) => x.kind === 'memory' && (x.entities || []).some((id) => 'e' + id === n.key))
+        .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      detailEl.innerHTML =
+        '<div class="dt-head"><span class="badge other">' + (ENT_NAME[n.type] || n.type) + '</span>' +
+        '<span class="idtag">度数 ' + (n.degree || 0) + '</span><span class="sp"></span>' +
+        '<button class="dt-x" data-close="1">×</button></div>' +
+        '<div class="dt-text" style="font-size:15px;font-weight:600">' + esc(n.name) + '</div>' +
+        '<div class="dt-meta">关联 ' + list.length + ' 条记忆</div>' +
+        '<div class="dt-list">' + (list.length
+          ? list.slice(0, 8).map((m) => '<a data-mem="' + esc(m.key) + '">' + esc(String(m.text || '').slice(0, 40)) +
+              '<small>' + fmtTime(m.created_at) + '</small></a>').join('')
+          : '<div class="empty">还没有挂在这上面的记忆。</div>') + '</div>' +
+        (extraCands && extraCands.length
+          ? '<div class="dt-meta" style="margin-top:10px">其他同名的</div><div class="dt-list">' +
+            extraCands.map((c) => '<a data-ent="' + esc(c.key) + '">' + esc(c.name) + '<small>度数 ' + (c.degree || 0) + '</small></a>').join('') + '</div>'
+          : '');
+    } else {
+      const m = memByKey.get(n.key) || {};
+      const ents = (m.entities || []).map((id) => {
+        const e = entByKey.get('e' + id);
+        return e ? '<span class="ent" data-ent="' + esc(e.key) + '">' + esc(e.name) + '</span>' : '';
+      }).join('');
+      detailEl.innerHTML =
+        '<div class="dt-head"><span class="badge ' + (KIND_NAME[n.type] ? n.type : 'other') + '">' +
+        (KIND_NAME[n.type] || n.type) + '</span><span class="idtag">#' + esc(String(m.id != null ? m.id : n.key.slice(1))) +
+        '</span><span class="sp"></span><button class="dt-x" data-close="1">×</button></div>' +
+        '<div class="dt-text">' + esc(m.text || '') + '</div>' +
+        '<div class="dt-meta">重要性 ' + (Number(m.importance) || 0).toFixed(2) + ' · ' + fmtTime(m.created_at) + '</div>' +
+        '<div class="dt-ents">' + ents + '</div>';
+    }
+    detailEl.classList.add('show');
+    detailEl.querySelectorAll('[data-close]').forEach((b) => { b.onclick = closeDetail; });
+    detailEl.querySelectorAll('[data-mem]').forEach((a) => {
+      a.onclick = () => { const k = a.dataset.mem; const t = byKey.get(k); if (t) { selKey = k; openDetail(t); } };
+    });
+    detailEl.querySelectorAll('[data-ent]').forEach((a) => {
+      a.onclick = () => { const k = a.dataset.ent; const t = byKey.get(k); if (t) { selKey = k; openDetail(t); } };
+    });
+  }
+  function closeDetail() { detailEl.classList.remove('show'); selKey = null; }
+
+  // pointer
+  canvas.addEventListener('pointerdown', (e) => {
+    drag = true; moved = false;
+    downX = lastX = e.clientX; downY = lastY = e.clientY;
+    canvas.classList.add('grabbing');
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    if (drag) {
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 3) moved = true;
+      yaw += dx * 0.0055;
+      pitch = clamp(pitch + dy * 0.0045, -1.25, 1.25);
+      lastX = e.clientX; lastY = e.clientY;
+      idleAt = performance.now();
+      hideTip();
+      return;
+    }
+    const n = nodeAt(mx, my);
+    if (n) {
+      hoverKey = n.key;
+      showTip(n, mx, my);
+      canvas.style.cursor = 'pointer';
+    } else {
+      hoverKey = null; hideTip(); canvas.style.cursor = drag ? 'grabbing' : 'grab';
+    }
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    canvas.classList.remove('grabbing');
+    if (drag && !moved) {
+      const r = canvas.getBoundingClientRect();
+      const n = nodeAt(e.clientX - r.left, e.clientY - r.top);
+      if (n) { selKey = n.key; openDetail(n); } else { closeDetail(); }
+    }
+    drag = false; idleAt = performance.now();
+  });
+  canvas.addEventListener('pointerleave', () => { hideTip(); hoverKey = null; canvas.classList.remove('grabbing'); drag = false; });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom = clamp(zoom * (e.deltaY < 0 ? 1.09 : 0.917), .45, 3.4);
+    idleAt = performance.now();
+  }, { passive: false });
+
+  document.getElementById('spinBtn').onclick = (e) => {
+    spin = !spin;
+    e.currentTarget.classList.toggle('on', spin);
+    e.currentTarget.textContent = spin ? '自动旋转' : '已暂停';
+  };
+  document.getElementById('resetBtn').onclick = () => {
+    yaw = 0.55; pitch = -0.2; zoom = 1; panX = 0; panY = 0; idleAt = performance.now();
+  };
+
+  // 搜实体：回车定位到最匹配的节点（度数高的优先），其余候选列在详情里
+  const searchEl = document.getElementById('skySearch');
+  searchEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const q = searchEl.value.trim().toLowerCase();
+    if (!q) return;
+    const cands = nodes.filter((n) => n.kind === 'entity' && String(n.name || '').toLowerCase().includes(q))
+      .sort((a, b) => (b.degree || 0) - (a.degree || 0));
+    if (!cands.length) {
+      searchEl.style.borderColor = 'var(--red)';
+      setTimeout(() => { searchEl.style.borderColor = ''; }, 900);
+      return;
+    }
+    selKey = cands[0].key;
+    idleAt = performance.now();
+    openDetail(cands[0], cands.slice(1, 6));
+  });
+
+  resize();
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(spaceEl);
+  else window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+
+  return { setData, resize, closeDetail };
+})();
+
+// ── 概览 ───────────────────────────────────────────────
+function renderStats(s) {
+  if (!s) return;
+  const g = state.graph || { memories: [] };
+  const dayAgo = Date.now() / 1000 - 86400;
+  const today = (g.memories || []).filter((m) => m.created_at > dayAgo).length;
+  document.getElementById('t-active').textContent = s.active;
+  document.getElementById('t-today').textContent = today ? '近 24h +' + today : '近 24h 无新增';
+  document.getElementById('t-ent').textContent = s.entities;
+  document.getElementById('t-rel').textContent = s.relations;
+  document.getElementById('t-vec').textContent = s.vectors;
+  const cov = s.active ? Math.round((s.vectors / s.active) * 100) : 0;
+  document.getElementById('t-vecm').textContent = '覆盖率 ' + cov + '%';
+  document.getElementById('t-imp').innerHTML = (s.avg_importance ?? 0).toFixed(2) + '<small>/1</small>';
+  const kinds = s.kinds || {};
+  document.getElementById('streamHint').textContent =
+    Object.entries(kinds).map(([k, v]) => (KIND_NAME[k] || k) + ' ' + v).join(' · ');
+}
+
+// ── 记忆流 ─────────────────────────────────────────────
+function renderChips() {
+  const mems = (state.graph && state.graph.memories) || [];
+  const counts = { all: mems.length };
+  mems.forEach((m) => { counts[m.kind] = (counts[m.kind] || 0) + 1; });
+  const order = ['all', 'episode', 'preference', 'reflection'];
+  const extra = Object.keys(counts).filter((k) => !order.includes(k));
+  const keys = order.concat(extra).filter((k) => k === 'all' || counts[k]);
+  document.getElementById('chips').innerHTML = keys.map((k) =>
+    '<button class="chip' + (state.filter === k ? ' on' : '') + '" data-k="' + k + '">' +
+    (k === 'all' ? '全部' : (KIND_NAME[k] || k)) + '<span class="n">' + counts[k] + '</span></button>'
+  ).join('');
+  document.querySelectorAll('#chips .chip').forEach((b) => {
+    b.onclick = () => { state.filter = b.dataset.k; renderChips(); renderStream(); };
+  });
+}
+
+function entityName(id) {
+  const nodes = (state.graph && state.graph.nodes) || [];
+  const hit = nodes.find((n) => String(n.id) === String(id));
+  return hit ? hit.name : String(id);
+}
+
+function renderStream(focusId) {
+  const all = ((state.graph && state.graph.memories) || []).slice();
+  const mems = state.filter === 'all' ? all : all.filter((m) => m.kind === state.filter);
+  mems.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  const box = document.getElementById('stream');
+  if (!mems.length) { box.innerHTML = '<div class="empty">这个筛选下还没有记忆。</div>'; return; }
+  box.innerHTML = mems.map((m) => {
+    const open = state.expanded.has(m.id);
+    const ents = (m.entities || []).filter((e) => e !== null && e !== undefined);
+    const imp = Math.max(0, Math.min(1, Number(m.importance) || 0));
+    return '<div class="item" data-id="' + m.id + '">' +
+      '<div class="time">' + fmtTime(m.created_at) + '</div>' +
+      '<div class="body">' +
+        '<div class="top">' +
+          '<span class="badge ' + (KIND_NAME[m.kind] ? m.kind : 'other') + '">' + (KIND_NAME[m.kind] || m.kind) + '</span>' +
+          '<span class="idtag">#' + m.id + '</span>' +
+          ents.map((e) => '<span class="ent">' + esc(entityName(e)) + '</span>').join('') +
+        '</div>' +
+        '<div class="text' + (open ? '' : ' clamp') + '">' + esc(m.text) + '</div>' +
+        '<div class="meta"><span class="imp">重要性 ' + imp.toFixed(2) +
+          '<span class="bar"><i style="width:' + Math.round(imp * 100) + '%"></i></span></span>' +
+          (String(m.text || '').length > 60
+            ? '<span class="idtag" style="cursor:pointer">' + (open ? '收起' : '展开') + '</span>' : '') +
+        '</div>' +
+      '</div></div>';
+  }).join('');
+  box.querySelectorAll('.item').forEach((el) => {
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+      renderStream();
+    };
+  });
+  if (focusId != null) {
+    const el = box.querySelector('.item[data-id="' + focusId + '"]');
+    if (el) {
+      state.expanded.add(Number(focusId));
+      renderStream();
+      const target = box.querySelector('.item[data-id="' + focusId + '"]');
+      if (target) {
+        const top = target.offsetTop - box.clientHeight / 2 + target.clientHeight / 2;
+        box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        target.classList.add('flash');
+        setTimeout(() => target.classList.remove('flash'), 1600);
+      }
+    }
+  }
+}
+
+// ── 生活层 ─────────────────────────────────────────────
+const LIFE_ROWS = [
+  ['energy', '精力', 'var(--green)'],
+  ['curiosity', '好奇', 'var(--violet)'],
+  ['boredom', '无聊', 'var(--amber)'],
+  ['social', '社交', 'var(--pink)'],
+  ['play', '玩心', 'var(--blue)'],
+  ['rest', '休息', '#7f8ea8'],
+];
+function renderLife(st) {
+  if (!st) { document.getElementById('life').innerHTML = '<div class="empty">读不到生活层状态。</div>'; return; }
+  document.getElementById('life').innerHTML = LIFE_ROWS.map(([k, name, color]) => {
+    const v = Math.max(0, Math.min(1, Number(st[k]) || 0));
+    return '<div class="life-row"><div class="lab"><span>' + name + '</span><b>' + v.toFixed(2) + '</b></div>' +
+      '<div class="track"><i style="width:' + Math.round(v * 100) + '%;background:' + color + '"></i></div></div>';
+  }).join('');
+  const word = [];
+  if ((st.energy || 0) < 0.3) word.push('精力见底，想歇着');
+  if ((st.boredom || 0) > 0.6) word.push('有点腻，想找点新鲜事');
+  if ((st.curiosity || 0) > 0.6) word.push('好奇心很旺');
+  if ((st.social || 0) > 0.65) word.push('想跟人说话');
+  if (!word.length) word.push('状态平稳，没什么特别想干的');
+  document.getElementById('moodline').innerHTML =
+    '她这会儿大概是：' + esc(word.join('，')) + '。<br><span style="color:var(--dim);font-size:11.5px">最后推进：' +
+    (st.last ? fmtTime(st.last) : '—') + '</span>';
+}
+
+// ── 体检 ───────────────────────────────────────────────
+function renderHealth(h) {
+  const box = document.getElementById('health');
+  const report = (h && (h.report || (h.data && h.data.report))) || '';
+  const lines = String(report).split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('【'));
+  if (!lines.length) { box.innerHTML = '<div class="empty">体检报告为空。</div>'; return; }
+  box.innerHTML = '<ul>' + lines.map((l) => {
+    const warn = /重复|冲突|低价值/.test(l) && !/：0|0 组$|0 条/.test(l);
+    return '<li class="' + (warn ? 'warn' : 'ok') + '">' + esc(l) + '</li>';
+  }).join('') + '</ul>';
+}
+
+// ── 检索 ───────────────────────────────────────────────
+async function runSearch() {
+  const q = document.getElementById('q').value.trim();
+  const box = document.getElementById('hits');
+  if (!q) { box.innerHTML = '<div class="empty">先写一句话。</div>'; return; }
+  box.innerHTML = '<div class="empty">检索中…</div>';
+  try {
+    const j = await api('/recall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, k: 6, visibility: ['private', 'public'] }),
+    });
+    const hits = (j.data && j.data.hits) || [];
+    if (!hits.length) { box.innerHTML = '<div class="empty">没召回任何记忆。要么确实没提过，要么换个近义的说法。</div>'; return; }
+    box.innerHTML = hits.map((h) => {
+      const s = Number(h.score) || 0;
+      return '<div class="hit"><div class="score' + (s < 0.5 ? ' low' : '') + '">' + s.toFixed(2) + '</div>' +
+        '<div><div class="txt">' + esc(h.text) + '</div>' +
+        '<div class="sub2">#' + h.id + ' · ' + (KIND_NAME[h.kind] || h.kind) + ' · 重要性 ' + (Number(h.importance) || 0).toFixed(2) + ' · ' + fmtTime(h.created_at) + '</div></div></div>';
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="empty">检索失败：' + esc(e.message) + '</div>';
+  }
+}
+
+// ── 未完成清单 ─────────────────────────────────────────
+const LOOP_TAG = { promise: '答应过', reminder: '要提醒', debt: '欠着', unfinished: '没聊完', intention: '想说' };
+function renderLoops(rows) {
+  const box = document.getElementById('loops');
+  const open = Array.isArray(rows) ? rows : [];
+  document.getElementById('loopHint').textContent = open.length ? open.length + ' 件还没了' : 'open_loops';
+  if (!open.length) {
+    box.innerHTML = '<div class="empty">清单是空的——她现在没有挂心的事。</div>';
+    return;
+  }
+  const now = Date.now() / 1000;
+  box.innerHTML = '<ol>' + open.map((l) => {
+    let extra = '';
+    if (l.due_at) {
+      const over = Number(l.due_at) < now;
+      extra += `<span class="due${over ? ' over' : ''}">${over ? '已过期' : '到期'} ${fmtTime(l.due_at)}</span>`;
+    }
+    if (Number(l.surface_count) > 0) extra += `<span class="due">提过 ${l.surface_count} 次</span>`;
+    return `<li><span class="tag">${esc(LOOP_TAG[l.kind] || l.kind)}</span>${esc(l.title)}${extra}</li>`;
+  }).join('') + '</ol>';
+}
+
+// ── 主刷新 ─────────────────────────────────────────────
+async function refresh() {
+  try {
+    const [stats, graph, life, health, loops] = await Promise.all([
+      api('/stats'), api('/graph'), api('/life/state'), api('/health'), api('/intent/loops'),
+    ]);
+    state.stats = stats.data; state.graph = graph.data; state.life = life.data; state.health = health;
+    renderStats(state.stats);
+    renderChips(); renderStream();
+    renderLoops(loops?.data?.loops);
+    renderLife(state.life);
+    Sky.setData(state.graph);
+    document.getElementById('graphHint').textContent =
+      (state.graph.nodes || []).length + ' 实体 · ' + (state.graph.memories || []).length + ' 记忆 · ' + (state.graph.edges || []).length + ' 共现边';
+    renderHealth(state.health);
+    setLive(true, '已连接 · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+  } catch (e) {
+    setLive(false, '已断开');
+  }
+}
+
+document.getElementById('refresh').onclick = refresh;
+document.getElementById('go').onclick = runSearch;
+document.getElementById('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 15000);
+</script>
+</body>
+</html>

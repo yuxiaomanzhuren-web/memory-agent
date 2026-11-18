@@ -1,0 +1,12 @@
+{
+  "roots": [
+    {
+      "scope": {
+        "bot_id": "<BOT_ID>",
+        "conv_key": "private:<OWNER_ID>",
+        "persona": "示例人格"
+      },
+      "root": "/path/to/review/root"
+    }
+  ]
+}

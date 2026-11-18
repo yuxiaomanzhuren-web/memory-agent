@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="referrer" content="no-referrer" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>鱼小满 · 控制台</title>
+<style>
+  :root {
+    --bg: #07090e;
+    --side: #0b0e15;
+    --panel: #10141c;
+    --panel-2: #161b26;
+    --line: #222937;
+    --text: #e9edf5;
+    --muted: #8b94a7;
+    --dim: #5c6474;
+    --pink: #ff6f9c;
+    --blue: #6ea8fe;
+    --violet: #a78bfa;
+    --green: #45d19a;
+    --amber: #f5b544;
+    --red: #f26d6d;
+    --cyan: #4fd6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    overflow: hidden;
+  }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #262e3d; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── 左侧导航 ───────────────────────────── */
+  aside {
+    width: 218px; flex: 0 0 218px; height: 100vh; background: var(--side);
+    border-right: 1px solid var(--line); display: flex; flex-direction: column;
+    padding: 20px 0 12px;
+  }
+  .brand { padding: 0 20px 18px; }
+  .brand h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: .4px; }
+  .brand h1 em { color: var(--pink); font-style: normal; }
+  .brand p { margin: 2px 0 0; font-size: 11.5px; color: var(--dim); letter-spacing: .5px; }
+  nav { flex: 1; overflow-y: auto; }
+  nav a {
+    display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: var(--muted);
+    text-decoration: none; font-size: 13.5px; border-left: 2px solid transparent; cursor: pointer;
+  }
+  nav a:hover { color: var(--text); background: #0f131b; }
+  nav a.on { color: var(--text); background: #141a25; border-left-color: var(--pink); }
+  nav a i { font-style: normal; width: 16px; text-align: center; color: var(--dim); font-size: 13px; }
+  nav a.on i { color: var(--pink); }
+  nav .grp { padding: 14px 20px 5px; font-size: 10.5px; color: #454c5c; letter-spacing: 1.2px; }
+  .sidefoot { padding: 10px 20px 0; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--dim); }
+  .sidefoot a { color: var(--muted); text-decoration: none; }
+  .sidefoot a:hover { color: var(--pink); }
+
+  /* ── 主区 ───────────────────────────── */
+  main { flex: 1; height: 100vh; overflow-y: auto; padding: 22px 28px 90px; }
+  .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .topbar h2 { font-size: 18px; margin: 0; font-weight: 620; }
+  .topbar .desc { color: var(--muted); font-size: 12.5px; }
+  .spacer { flex: 1; }
+  .svc { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted);
+         background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 3px 10px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(69,209,154,.13); }
+  .dot.off { background: var(--red); box-shadow: 0 0 0 3px rgba(242,109,109,.13); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 16px 18px; margin-bottom: 14px; }
+  .card h3 { font-size: 13px; margin: 0 0 3px; font-weight: 600; letter-spacing: .2px; }
+  .card .hint { font-size: 11.5px; color: var(--dim); margin-bottom: 12px; }
+  .grid { display: grid; gap: 12px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .g4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .g5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+  @media (max-width: 1100px) { .g5 { grid-template-columns: repeat(3, minmax(0,1fr)); } .g2,.g3 { grid-template-columns: 1fr; } }
+
+  .tile { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tile .k { font-size: 11px; color: var(--muted); letter-spacing: .3px; }
+  .tile .v { font-size: 23px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile .v small { font-size: 11.5px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+  .tile .m { font-size: 11px; color: var(--dim); }
+
+  button { font-family: inherit; }
+  .btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+         padding: 6px 13px; font-size: 12.5px; cursor: pointer; transition: .15s; }
+  .btn:hover { border-color: #38445e; background: #1a2130; }
+  .btn.primary { background: #2a1a25; border-color: #5c2b3d; color: #ffb3c8; }
+  .btn.primary:hover { background: #351f2d; }
+  .btn.danger { color: #ff9b9b; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.sm { padding: 3px 9px; font-size: 11.5px; }
+
+  input[type=text], input[type=number], input[type=password], select, textarea {
+    background: #0b0f16; border: 1px solid var(--line); color: var(--text); border-radius: 7px;
+    padding: 6px 9px; font: inherit; font-size: 12.5px; width: 100%; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #40506e; }
+  input[type=range] { accent-color: var(--pink); }
+  textarea { resize: vertical; line-height: 1.55; }
+  label.f { display: block; margin-bottom: 11px; }
+  label.f > .lab { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-bottom: 5px; }
+  label.f > .tip { font-size: 10.5px; color: var(--dim); margin-top: 4px; line-height: 1.5; }
+  .row { display: flex; align-items: center; gap: 8px; }
+
+  /* 开关 */
+  .sw { position: relative; width: 38px; height: 21px; flex: 0 0 38px; }
+  .sw input { opacity: 0; width: 0; height: 0; }
+  .sw span { position: absolute; inset: 0; background: #232a38; border-radius: 20px; cursor: pointer; transition: .18s; }
+  .sw span:before { content: ""; position: absolute; width: 15px; height: 15px; left: 3px; top: 3px; background: #7c8698; border-radius: 50%; transition: .18s; }
+  .sw input:checked + span { background: #3a2230; }
+  .sw input:checked + span:before { transform: translateX(17px); background: var(--pink); }
+
+  /* 列表 */
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .item { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; }
+  .item .t { font-size: 13px; }
+  .item .meta { font-size: 11px; color: var(--dim); margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .badge { font-size: 10.5px; padding: 1px 7px; border-radius: 20px; background: #1e2534; color: var(--muted); }
+  .badge.ok { background: #16302a; color: #74dcb4; }
+  .badge.warn { background: #33280f; color: #e5b767; }
+  .badge.bad { background: #33191c; color: #ff9b9b; }
+  .badge.pink { background: #331a24; color: #ff9ec0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--dim); font-weight: 500; font-size: 11px; letter-spacing: .4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 8px; border-bottom: 1px solid #191f2b; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .hi { color: var(--green); }
+  .lo { color: var(--dim); }
+
+  pre.log { background: #070a10; border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+            font: 11.5px/1.65 "Cascadia Mono", Consolas, monospace; color: #9aa6bb; max-height: 62vh;
+            overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; }
+
+  /* 底部保存条 */
+  #savebar {
+    position: fixed; left: 218px; right: 0; bottom: 0; background: rgba(14,18,26,.96);
+    border-top: 1px solid var(--line); padding: 11px 28px; display: none; align-items: center; gap: 12px;
+    backdrop-filter: blur(8px); z-index: 20;
+  }
+  #savebar.show { display: flex; }
+  #savebar .n { font-size: 12.5px; color: var(--amber); }
+  #savebar .msg { font-size: 12px; color: var(--muted); }
+
+  .toast { position: fixed; right: 24px; bottom: 70px; background: #182029; border: 1px solid #2c3a4f;
+           color: var(--text); padding: 10px 16px; border-radius: 9px; font-size: 12.5px; opacity: 0;
+           transform: translateY(8px); transition: .22s; pointer-events: none; z-index: 50; max-width: 420px; }
+  .toast.show { opacity: 1; transform: none; }
+  .toast.err { border-color: #5b2a2a; color: #ffb3b3; }
+
+  .kv { display: flex; gap: 8px; font-size: 12px; color: var(--muted); }
+  .kv b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--dim); font-size: 12.5px; padding: 12px 0; }
+  .code { font: 11.5px/1.6 "Cascadia Mono", Consolas, monospace; color: #8fa3c4; background: #0b0f16;
+          border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
+
+  .audit-fields { display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:12px; }
+  .audit-fields label, #auditConnect label { display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:12px; }
+  #auditConnect input { width:100%; min-width:0; }
+  .audit-fields input { color:var(--text); background:#0b0f16; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .audit-fields input:focus { outline:2px solid var(--blue); outline-offset:1px; }
+  .audit-description { overflow-wrap:anywhere; margin:10px 0; }
+  .audit-pointers { overflow-wrap:anywhere; font-size:12px; margin-bottom:10px; }
+  .audit-json { margin-top:12px; }
+  .audit-json pre, pre.audit-json { white-space:pre-wrap; overflow-wrap:anywhere; max-height:360px; overflow:auto; font-size:12px; }
+  .audit-item summary, #auditStats + summary { cursor:pointer; color:var(--muted); }
+  @media (max-width:900px) { .audit-fields { grid-template-columns:1fr; } }
+
+  .subnav { flex-wrap:wrap; margin-bottom:16px; }
+  .provenance { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+  .inventory-counts { margin-top:14px; font-variant-numeric:tabular-nums; }
+  .inventory-counts b { font-size:28px; color:var(--text); }
+  #authConnect { margin-top:12px; }
+  #authConnect .audit-fields { margin-bottom:12px; }
+  summary { cursor:pointer; }
+  main { min-width:0; }
+  p, .item, pre, .hint { overflow-wrap:anywhere; }
+  @media(max-width:760px) { aside { width:150px; flex-basis:150px; } main { padding:16px 14px 100px; } #savebar { left:150px; padding:10px; } .grid.g2,.grid.g3,.grid.g4,.grid.g5 { grid-template-columns:1fr; } .audit-fields { grid-template-columns:1fr; } .row { flex-wrap:wrap; } .brand { padding-left:12px; } nav a { padding-left:12px; } }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">
+    <h1>鱼<em>小满</em> · 控制台</h1>
+  </div>
+  <nav id="nav"></nav>
+  <div class="sidefoot">
+    <a href="#" id="reload">刷新</a>
+  </div>
+</aside>
+
+<main>
+  <details class="card" id="authBox" open>
+    <summary>连接与范围 <span class="hint" id="authStatus">未连接；凭据仅保存在当前页面内存</span></summary>
+    <form id="authConnect" autocomplete="off">
+      <label class="f"><span class="lab">管理令牌</span><input id="adminCredential" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" aria-label="管理令牌"></label>
+      <div class="audit-fields">
+        <label>机器人号<input id="scopeBot" inputmode="numeric" autocomplete="off" aria-label="机器人号"></label>
+        <label>角色<input id="scopePersona" autocomplete="off" aria-label="角色"></label>
+        <label>会话<input id="scopeConversation" autocomplete="off" placeholder="private:用户号 或 group:群号" aria-label="会话"></label>
+      </div>
+      <label class="f"><span class="lab">范围凭据（查看会话资料时填写）</span><input id="scopeCredential" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" aria-label="范围凭据"></label>
+      <div class="row"><button class="btn primary" type="submit">连接</button><button class="btn" id="authDisconnect" type="button">清除授权</button><span class="hint">管理权与会话范围分别校验，刷新后需重填。</span></div>
+    </form>
+  </details>
+  <div class="topbar" id="topbar"></div>
+  <div id="view"></div>
+</main>
+
+<div id="savebar">
+  <span class="n" id="dirtyN">0 项未保存</span>
+  <span class="msg" id="dirtyTip"></span>
+  <span class="spacer" style="flex:1"></span>
+  <button class="btn" id="discard">放弃</button>
+  <button class="btn primary" id="save">保存并生效</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* A page-local credential boundary, shared by every console panel. */
+const ConsoleAuth = (() => {
+  let admin = '', session = null, generation = 0, controller = new AbortController();
+  function clearRequests() { controller.abort(); controller = new AbortController(); ++generation; }
+  function redact(value) {
+    let text = String(value ?? '');
+    for (const secret of [admin, session?.credential].filter(Boolean)) text = text.split(secret).join('[凭据已隐藏]');
+    return text;
+  }
+  async function request(path, opts = {}) {
+    if (!admin) throw new Error('请先输入管理令牌。');
+    const scope = session, epoch = generation, routeEpoch = routeSerial;
+    if (opts.scoped && !scope) throw new Error('请先连接会话三绑定和范围凭据。');
+    const headers = { Authorization: 'Bearer ' + admin, 'Content-Type': 'application/json' };
+    if (opts.scoped) headers['X-Memory-Scope-Credential'] = scope.credential;
+    const body = opts.body ? { ...opts.body, ...(opts.scoped ? scope.scope : {}) } : undefined;
+    const signal = opts.signal ? AbortSignal.any([controller.signal, opts.signal]) : controller.signal;
+    const response = await fetch(path, { method: opts.method || (body ? 'POST' : 'GET'), headers,
+      body: body ? JSON.stringify(body) : undefined, signal, cache: 'no-store', credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer' });
+    const result = await response.json().catch(() => null);
+    if (generation !== epoch || routeEpoch !== routeSerial) throw new DOMException('View changed', 'AbortError');
+    if (!response.ok || result?.status !== 'ok') {
+      const messages = { 400: '参数不完整或格式无效。', 401: '管理授权未通过，请重新输入管理令牌。',
+        403: '范围授权未通过，请核对三绑定和范围凭据。', 404: '当前版本没有这个入口。',
+        409: '状态已变化，请刷新后重试。', 410: '旧无范围入口已禁用。', 413: '窗口过大，请缩小范围。' };
+      const error = new Error(messages[response.status] || '读取或操作未完成，请刷新核对。');
+      error.status = response.status; throw error;
+    }
+    if (body && result.data?.ok === false) {
+      const { error_code, field, limit, chars } = result.data;
+      const label = { block: '每块本子', loop_title: '清单标题', loop_detail: '清单详情' }[field];
+      if (error_code === 'text_too_long' && label && Number.isSafeInteger(limit) && Number.isSafeInteger(chars)) {
+        throw new Error(`${label}最多 ${limit} 字，当前 ${chars} 字。`);
+      }
+      throw new Error('操作未完成，请检查输入或刷新后重试。');
+    }
+    return result.data;
+  }
+  function init() {
+    const form = document.getElementById('authConnect');
+    const status = document.getElementById('authStatus');
+    form.onsubmit = event => {
+      event.preventDefault();
+      const tokenInput = form.querySelector('#adminCredential'), scopeInput = form.querySelector('#scopeCredential');
+      const nextAdmin = tokenInput.value || admin, credential = scopeInput.value;
+      tokenInput.value = ''; scopeInput.value = '';
+      const scope = { bot_id: form.querySelector('#scopeBot').value.trim(), persona: form.querySelector('#scopePersona').value.trim(), conv_key: form.querySelector('#scopeConversation').value.trim() };
+      const hasScope = Object.values(scope).some(Boolean) || !!credential;
+      const nextCredential = credential || (session && JSON.stringify(scope) === JSON.stringify(session.scope) ? session.credential : '');
+      if (!nextAdmin || (hasScope && (!/^[1-9]\d*$/.test(scope.bot_id) || !scope.persona || !/^(private|group):[1-9]\d*$/.test(scope.conv_key) || nextCredential.length < 32 || nextCredential.length > 256))) {
+        status.textContent = '请填写管理令牌；连接会话时需完整三绑定和范围凭据。'; return;
+      }
+      clearRequests(); admin = nextAdmin; session = hasScope ? { scope, credential: nextCredential } : null;
+      DIRTY_RESET(); clearPanelCaches();
+      status.textContent = hasScope ? '已加载凭据；会话读取时校验范围。' : '已加载管理凭据；会话资料仍需范围授权。';
+      document.getElementById('authBox').open = false; route();
+    };
+    ['scopeBot', 'scopePersona', 'scopeConversation'].forEach(id => form.querySelector('#'+id).addEventListener('input', () => {
+      clearRequests(); session = null; scopeInputClear(); clearPanelCaches();
+      status.textContent = '范围已变化，旧会话内容已清空；请重新连接。';
+      ++routeSerial;
+      document.getElementById('view').innerHTML = '<section class="card"><p class="hint">已清空旧范围，请重新连接。</p></section>';
+    }));
+    form.querySelector('#authDisconnect').onclick = () => {
+      clearRequests(); admin = ''; session = null; form.reset(); DIRTY_RESET(); clearPanelCaches();
+      status.textContent = '授权已清除。'; document.getElementById('authBox').open = true; route();
+    };
+  }
+  function scopeInputClear() { document.getElementById('scopeCredential').value = ''; }
+  return { request, redact, init, scope: () => session, managed: () => !!admin,
+    scopedPath: (path, extra = {}) => path + '?' + new URLSearchParams({ ...session?.scope, ...extra }) };
+})();
+const api = (path, opts = {}) => ConsoleAuth.request('/api/console' + path, opts);
+const scopedApi = (path, extra = {}, opts = {}) => ConsoleAuth.request(ConsoleAuth.scopedPath('/api/console' + path, extra), { ...opts, scoped: true });
+
+const MODULES = [
+  { id: 'overview', name: '概览', icon: '◎', render: renderOverview },
+  { id: 'memory', name: '记忆', icon: '◈', render: renderMemory },
+  { id: 'ledger', name: '账本', icon: '≋', render: renderLedgerPage },
+  { id: 'workspace', name: '清单与本子', icon: '☰', render: renderWorkspace },
+  { id: 'settings', name: '调参与子系统', icon: '⚙', render: renderSettings },
+  { id: 'logs', name: '日志', icon: '≡', render: renderLogs },
+];
+let SCHEMA = null;
+const DIRTY = {};
+let workspacePart = 'book', settingsPart = 'config', ledgerPart = 'judge';
+let routeSerial = 0;
+function clearPanelCaches() {
+  for (const key in BOOK_CACHE) delete BOOK_CACHE[key];
+  SCHEMA = null;
+}
+function buildNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = MODULES.map(m => `<a href="#${m.id}" data-id="${m.id}"><i>${m.icon}</i>${m.name}</a>`).join('');
+}
+function currentId() {
+  const id = location.hash.slice(1);
+  return MODULES.some(m => m.id === id) ? id : 'overview';
+}
+async function route() {
+  const id = currentId(), serial = ++routeSerial;
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.id === id));
+  const mod = MODULES.find(m => m.id === id), view = document.createElement('div');
+  view.id = 'view'; document.getElementById('view').replaceWith(view);
+  setTop(mod.name, '');
+  if (!ConsoleAuth.managed()) {
+    view.innerHTML = '<section class="card"><h3>先连接控制台</h3><p class="hint">输入管理令牌后读取宿主资料；会话记忆与账本还需要三绑定和范围凭据。凭据仅保留在当前页面内存。</p></section>'; return;
+  }
+  view.innerHTML = '<div class="empty">读取中…</div>';
+  try { await mod.render(view); }
+  catch (error) {
+    if (error.name === 'AbortError' || serial !== routeSerial || !view.isConnected) return;
+    view.innerHTML = `<section class="card"><h3>读取未完成</h3><p class="hint">${esc(error.message)}</p></section>`;
+  }
+}
+function setTop(title, desc, extra = '') {
+  document.getElementById('topbar').innerHTML = `<h2>${esc(title)}</h2><span class="desc">${esc(desc)}</span><span class="spacer"></span>${extra}`;
+}
+function scopeNotice() {
+  const scope = ConsoleAuth.scope()?.scope;
+  return scope ? `会话域 · ${scope.bot_id} / ${scope.persona} / ${scope.conv_key}` : '会话域 · 尚未连接三绑定';
+}
+function provenance(text) { return `<section class="card provenance"><span class="badge">数据范围</span> ${esc(text)} · 页面读取时间 ${esc(new Date().toLocaleString('zh-CN'))}</section>`; }
+function needsScope(view) {
+  if (ConsoleAuth.scope()) return false;
+  view.innerHTML = provenance('会话域，未授权') + '<section class="card"><p class="hint">请展开页首“连接与范围”，填写三绑定和范围凭据。本页没有执行会话查询，不把未查询显示为零。</p></section>';
+  return true;
+}
+function subnav(entries, selected) { return `<div class="row subnav">${entries.map(([id, label]) => `<button class="btn ${id === selected ? 'primary' : ''}" type="button" data-part="${id}">${label}</button>`).join('')}</div>`; }
+async function renderOverview(view) {
+  setTop('概览', '当前范围与已记录状态');
+  const cards = [['Inventory','当前范围记忆'], ['Services','宿主服务'], ['Book','本子'],
+    ['Loops','未完成清单'], ['Logs','记忆服务日志'], ['Recent','最近三次已记账判定']];
+  view.innerHTML = provenance(scopeNotice()) + '<div class="grid g2">' + cards.map(([id, title]) =>
+    `<section class="card" id="overview${id}"><h3>${title}</h3><div class="overview-value">读取中…</div></section>`).join('') + '</div>';
+  const read = async (id, task, paint, scoped = false) => {
+    const node = view.querySelector('#overview' + id + ' .overview-value');
+    if (scoped && !ConsoleAuth.scope()) { node.textContent = '待连接会话范围'; return; }
+    try { const data = await task(); if (view.isConnected) node.innerHTML = paint(data); }
+    catch (error) { if (view.isConnected && error.name !== 'AbortError') node.innerHTML = `<p class="hint">${esc(error.message)}</p>`; }
+  };
+  await Promise.all([
+    read('Inventory', () => scopedApi('/panel/memories', { limit: '1', status: 'all' }), d => `<div class="row inventory-counts"><b>${esc(d.counts?.active ?? '未知')}</b> active <b>${esc(d.counts?.archived ?? '未知')}</b> archived</div><p class="hint">memories · 当前范围全量 · ${fmtTime(d.as_of)}</p>`, true),
+    read('Services', () => api('/services'), d => `<p>${d.services.filter(s => s.up).length} / ${d.services.length} 个目标有监听或进程信号</p><p class="hint">宿主级 · 当前服务注册</p>`),
+    read('Book', () => api('/blocks'), d => `<p>${esc(d.stats?.filled ?? '未知')} / ${d.blocks.length} 块已填写</p><p class="hint">memory_blocks · 宿主级 · 当前块全量</p>`),
+    read('Loops', () => api('/loops?status=open'), d => `<p>返回 ${d.loops.length} 条</p><p class="hint">open_loops · 宿主级 · 最多40条</p>`),
+    read('Logs', () => scopedApi('/panel/logs/tail', { target: 'memory', lines: '1' }), d => `<p>${d.source_status !== 'read' ? '来源不可用' : d.items.length ? '窗口内有可显示诊断' : '窗口内无可归属诊断'}</p><p class="hint">记忆服务 · 当前范围 · 扫描 ${esc(d.scanned_lines)} 行</p>`, true),
+    read('Recent', () => scopedApi('/ledger/events', { kind: 'judge', limit: '3', days: '7' }), d => `<p class="hint">操作账本 · 当前范围近七天 · 已记账 ${esc(d.summary?.total ?? '未知')} 条</p>${d.items.map(e => `<div class="item"><span class="badge">${esc(e.state)}</span> ${esc(e.query)}<div class="meta">${esc(e.query_id || '')} · ${esc(e.at_text)}</div></div>`).join('') || '<p class="hint">这个窗口没有已记录判定。</p>'}`, true),
+  ]);
+}
+let memoryStatus = 'active';
+async function renderMemory(view) {
+  setTop('记忆', '范围内只读库存；查看不会改变访问次数或召回');
+  if (needsScope(view)) return;
+  view.innerHTML = provenance(scopeNotice() + '；来源 memories，按状态分页') + `<section class="card"><div class="row"><label>状态<select id="memoryStatus">${['active', 'archived', 'all'].map(s => `<option ${s === memoryStatus ? 'selected' : ''}>${s}</option>`).join('')}</select></label><button class="btn" id="memoryRefresh">刷新</button><span class="hint" id="memoryCount"></span></div></section><section id="memoryItems"></section><button class="btn" id="memoryMore" disabled>加载更多</button><section id="memoryDetail" aria-live="polite"></section>`;
+  let cursor = null, items = [], sequence = 0, detailSequence = 0;
+  const output = view.querySelector('#memoryItems'), count = view.querySelector('#memoryCount'), more = view.querySelector('#memoryMore');
+  async function load(append = false) {
+    const seq = ++sequence; more.disabled = true;
+    if (!append) { ++detailSequence; items = []; cursor = null; output.textContent = '读取中…'; view.querySelector('#memoryDetail').textContent = ''; }
+    try {
+      const data = await scopedApi('/panel/memories', { status: memoryStatus, limit: '50', ...(append && cursor ? { cursor } : {}) });
+      if (!view.isConnected || seq !== sequence) return;
+      items = append ? items.concat(data.items || []) : data.items || []; cursor = data.next_cursor;
+      count.textContent = `已显示 ${items.length} / ${data.total ?? '未知'} · active ${data.counts?.active ?? '未知'} / archived ${data.counts?.archived ?? '未知'} · 列表起始 ${fmtTime(data.as_of)}`;
+      output.innerHTML = items.map(item => `<article class="card memory-item"><div class="row"><span class="badge">#${esc(item.id)} · ${esc(item.kind)} · ${esc(item.status)}</span><span class="badge">${esc(item.stance || '来源不明')} / ${esc(item.support_scope || '仅线索')}</span><span class="spacer"></span><button class="btn sm" data-memory-id="${esc(item.id)}">详情</button></div><p>${esc(item.text)}</p><div class="hint">写入 ${fmtTime(item.created_at)} · 重要性 ${esc(item.importance)}</div></article>`).join('') || '<section class="card"><p class="hint">本范围这个状态没有可展示条目。</p></section>';
+      more.disabled = !cursor;
+      output.querySelectorAll('[data-memory-id]').forEach(button => button.onclick = () => detail(button.dataset.memoryId));
+    } catch (error) {
+      if (!view.isConnected || seq !== sequence || error.name === 'AbortError') return;
+      count.textContent = '计数未知'; output.innerHTML = `<section class="card">${esc(error.message)}</section>`;
+    }
+  }
+  async function detail(id, includeVersions = false) {
+    const request = ++detailSequence, node = view.querySelector('#memoryDetail');
+    node.textContent = '读取详情…';
+    try {
+      const data = await scopedApi('/panel/memory', { id, ...(includeVersions ? { include_versions: '1' } : {}) });
+      if (!view.isConnected || request !== detailSequence) return;
+      const item = data.item, version = item.version || {};
+      const links = data.links.map(link => `<li>#${esc(link.id)} · 条目 #${esc(link.a_id)} → #${esc(link.b_id)} · ${esc(link.relation)} · ${esc(link.state)}</li>`).join('');
+      const versions = (data.versions || []).map(row => `<li>条目 #${esc(row.id)} · ${esc(row.version?.state)} · ${esc(row.text)}</li>`).join('');
+      node.innerHTML = `<section class="card"><h3>记忆 #${esc(item.id)} · ${esc(item.status)}</h3>
+        <p>${esc(item.text)}</p><p class="hint">${esc(item.kind)} · 写入 ${fmtTime(item.created_at)} · 归档 ${fmtTime(item.archived_at)}<br>${esc(item.stance)} · ${esc(item.support_scope)}</p>
+        <p class="hint">原话 ID：${esc(item.evidence_raw_ids.join('、') || '无本范围登记')}<br>
+        版本 ${esc(version.state || '未知')}${version.superseded_by ? ' · 由边 #'+esc(version.superseded_by)+' 取代' : ''}</p>
+        ${links ? `<h3>本范围连线</h3><ul>${links}</ul>` : ''}
+        <button class="btn sm" id="memoryVersions">${includeVersions ? '收起版本链' : '展开版本链'}</button>
+        ${includeVersions ? (versions ? `<ol>${versions}</ol>` : '<p class="hint">无可显示的版本链。</p>') : ''}</section>`;
+      node.querySelector('#memoryVersions').onclick = () => detail(id, !includeVersions);
+    } catch (error) {
+      if (view.isConnected && request === detailSequence && error.name !== 'AbortError') node.textContent = error.message;
+    }
+  }
+  view.querySelector('#memoryStatus').onchange = event => { memoryStatus = event.target.value; load(); };
+  view.querySelector('#memoryRefresh').onclick = () => load(); more.onclick = () => load(true);
+  await load();
+}
+async function renderLedgerPage(view) {
+  setTop('账本', '判定、取舍与变更；自动四态与人工复核分开');
+  view.innerHTML = subnav([['judge','判定'],['choices','提炼与取舍'],['changes','删除归档'],['manual','人工判断（宿主级）']], ledgerPart) + '<div id="ledgerBody"></div>';
+  view.querySelectorAll('[data-part]').forEach(button => button.onclick = () => { ledgerPart = button.dataset.part; route(); });
+  const body = view.querySelector('#ledgerBody');
+  if (ledgerPart === 'manual') {
+    await renderLedger(body);
+    if (view.isConnected) { body.insertAdjacentHTML('afterbegin', provenance('管理域 · judgment_ledger / ledger_reviews；筛选列表最多80条，统计为旧管理域全量，不属于当前三绑定')); setTop('账本', '人工判断：旧管理域资料'); }
+    return;
+  }
+  if (needsScope(body)) return;
+  const kind = { judge: 'judge', choices: 'extract,drop,merge,downgrade', changes: 'delete,archive,restore' }[ledgerPart];
+  await AuditPanel.render(body, kind);
+  if (view.isConnected) { body.insertAdjacentHTML('afterbegin', provenance(scopeNotice() + '；来源操作账本，按记账时间窗口分页')); setTop('账本', '已记账事件；空白不代表未发生'); }
+}
+async function renderWorkspace(view) {
+  view.innerHTML = subnav([['book','本子与版本'],['loops','清单']], workspacePart) + '<div id="workspaceBody"></div>';
+  view.querySelectorAll('[data-part]').forEach(button => button.onclick = () => { workspacePart = button.dataset.part; route(); });
+  const body = view.querySelector('#workspaceBody');
+  await (workspacePart === 'book' ? renderBook(body) : renderLoops(body));
+  if (view.isConnected) {
+    setTop('清单与本子', '宿主级旧资料；不自动认领为当前会话');
+    body.insertAdjacentHTML('afterbegin', provenance(workspacePart === 'book' ? '管理域 · memory_blocks / block_versions；当前块全量，历史展开时读取版本窗口' : '管理域 · open_loops；当前筛选 open，最多40条，不是会话计数'));
+  }
+}
+async function renderSettings(view) {
+  view.innerHTML = subnav([['config','配置与漂移'],['services','服务状态']], settingsPart) + '<div id="settingsBody"></div>';
+  view.querySelectorAll('[data-part]').forEach(button => button.onclick = () => { settingsPart = button.dataset.part; route(); });
+  const body = view.querySelector('#settingsBody');
+  await (settingsPart === 'config' ? renderTune(body) : renderLinks(body));
+  if (view.isConnected) { setTop('调参与子系统', '宿主管理域；配置值、运行值与监听状态分别核对'); body.insertAdjacentHTML('afterbegin', provenance('管理域 · 配置文件/内存设置及服务探测；当前注册目标全量，不是会话数据')); }
+}
+async function renderLogs(view) {
+  setTop('日志', '有限窗口的结构化诊断；不显示原始日志或聊天正文');
+  if (needsScope(view)) return;
+  view.innerHTML = provenance(scopeNotice() + '；日志元数据投影') + '<section class="card"><div class="row"><label>固定目标<select id="logTarget"><option value="memory">记忆服务</option><option value="bridge">桥接</option></select></label><button class="btn" id="logRefresh">刷新最近100条</button></div><p class="hint" id="logCoverage">读取中…</p><pre class="log" id="logOutput"></pre></section>';
+  let sequence = 0;
+  async function load() {
+    const seq = ++sequence, note = view.querySelector('#logCoverage'), output = view.querySelector('#logOutput');
+    output.textContent = ''; note.textContent = '读取中…';
+    try {
+      const data = await scopedApi('/panel/logs/tail', { target: view.querySelector('#logTarget').value, lines: '100' });
+      if (!view.isConnected || seq !== sequence) return;
+      note.textContent = data.source_status !== 'read' ? '日志来源不可用。' : `采集 ${fmtTime(data.as_of)} · 扫描 ${data.scanned_lines} 行 / ${data.scanned_bytes} 字节 · ${data.truncated ? '窗口已截断' : '有限窗口'}`;
+      output.textContent = ConsoleAuth.redact((data.items || []).map(item => JSON.stringify(item)).join('\n')) || '没有可安全展示的归属记录；该阶段未知。';
+    } catch (error) { if (view.isConnected && seq === sequence && error.name !== 'AbortError') note.textContent = error.message + ' 未将读取失败记为0条。'; }
+  }
+  view.querySelector('#logRefresh').onclick = load; view.querySelector('#logTarget').onchange = load; await load();
+}
+function toast(msg, err) {
+  const el = document.getElementById('toast');
+  el.textContent = ConsoleAuth.redact(msg);
+  el.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => (el.className = 'toast'), 3200);
+}
+
+const fmtTime = (sec) => {
+  if (!sec) return '—';
+  const d = new Date(sec * 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+const fmtAgo = (sec) => {
+  if (!sec) return '—';
+  const s = Date.now() / 1000 - sec;
+  if (s < 90) return '刚刚';
+  if (s < 3600) return Math.round(s / 60) + ' 分钟前';
+  if (s < 86400) return Math.round(s / 3600) + ' 小时前';
+  return Math.round(s / 86400) + ' 天前';
+};
+const esc = (s) => ConsoleAuth.redact(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pct = (v) => Math.round((Number(v) || 0) * 100) + '%';
+
+function tile(k, v, m) {
+  return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="m">${esc(m)}</div></div>`;
+}
+
+const BOOK_OPEN = {};   // slug -> 历史是否展开
+const BOOK_CACHE = {};  // slug -> 版本列表
+const BOOK_PAGE_CHARS = 2000;
+const normalizedText = value => String(value ?? '').replace(/\r\n?/g, '\n');
+const textChars = value => Array.from(normalizedText(value)).length;
+
+function updateTextCount(input, counter, limit) {
+  const length = textChars(input.value);
+  counter.textContent = String(length);
+  input.setAttribute('aria-invalid', String(length > limit));
+  counter.classList.toggle('hi', length <= limit);
+  counter.style.color = length > limit ? 'var(--red)' : '';
+  return length;
+}
+
+function bookPages(text) {
+  const ends = Array.from(text.matchAll(/\n(?:[ \t]*\n)+/g), match => match.index + match[0].length);
+  ends.push(text.length);
+  const pages = [];
+  let start = 0, number = 0, page;
+  for (const end of ends) {
+    if (start === end) continue;
+    const chars = Array.from(text.slice(start, end));
+    number += 1;
+    let offset = start;
+    for (let i = 0; i < chars.length; i += BOOK_PAGE_CHARS) {
+      const chunk = chars.slice(i, i + BOOK_PAGE_CHARS);
+      if (!page || page.length + chunk.length > BOOK_PAGE_CHARS) {
+        page = { length: 0, end: offset, segments: [] };
+        pages.push(page);
+      }
+      const body = chunk.join('');
+      page.segments.push({ number, offset, body, part: Math.floor(i / BOOK_PAGE_CHARS) + 1 });
+      offset += body.length;
+      page.end = offset;
+      page.length += chunk.length;
+    }
+    start = end;
+  }
+  return pages;
+}
+
+function bindBookReader(reader, text) {
+  let pageIndex = 0, query = '', matchAt = -1;
+  const pages = bookPages(text);
+  const previous = reader.querySelector('[data-page-prev]');
+  const next = reader.querySelector('[data-page-next]');
+  const output = reader.querySelector('[data-book-page]');
+  const status = reader.querySelector('[data-page-status]');
+  function paint(message = '') {
+    const page = pages[pageIndex];
+    previous.disabled = pageIndex === 0;
+    next.disabled = pageIndex + 1 >= pages.length;
+    status.textContent = page
+      ? `第 ${pageIndex + 1} / ${pages.length} 页 · ${page.length} 字${message ? ' · '+message : ''}`
+      : '本块为空';
+    output.replaceChildren();
+    for (const part of page?.segments || []) {
+      const label = document.createElement('div');
+      label.className = 'hint';
+      label.textContent = `第 ${part.number} 段${part.part > 1 ? ' · 续 '+part.part : ''}`;
+      const body = document.createElement('div');
+      body.dataset.bookSegment = String(part.number);
+      body.style.whiteSpace = 'pre-wrap';
+      const from = Math.max(0, matchAt - part.offset);
+      const to = Math.min(part.body.length, matchAt + query.length - part.offset);
+      if (matchAt >= 0 && to > from) {
+        const mark = document.createElement('mark');
+        mark.textContent = part.body.slice(from, to);
+        body.append(part.body.slice(0, from), mark, part.body.slice(to));
+      } else {
+        body.textContent = part.body;
+      }
+      output.append(label, body);
+    }
+  }
+  previous.onclick = () => { if (pageIndex > 0) { pageIndex--; paint(); } };
+  next.onclick = () => { if (pageIndex + 1 < pages.length) { pageIndex++; paint(); } };
+  reader.querySelector('form').onsubmit = event => {
+    event.preventDefault();
+    const value = reader.querySelector('input').value;
+    const start = value === query && matchAt >= 0 ? matchAt + value.length : 0;
+    query = value;
+    matchAt = query ? text.indexOf(query, start) : -1;
+    if (matchAt < 0 && start) matchAt = text.indexOf(query);
+    if (matchAt >= 0) pageIndex = pages.findIndex(page => matchAt < page.end);
+    paint(query ? (matchAt >= 0 ? '已定位' : '没有匹配') : '');
+  };
+  paint();
+}
+
+async function renderBook(view) {
+  const d = await api('/blocks');
+  const blocks = d.blocks || [];
+  const st = d.stats || {};
+  const cap = st.block_chars, inject = st.inject_chars;
+  if (!Number.isSafeInteger(cap) || !Number.isSafeInteger(inject)) {
+    view.textContent = '服务还未报告新版字数上限。完成托管重启后再写本子。';
+    return;
+  }
+  const bodies = new Map(blocks.map(block => [block.slug, normalizedText(ConsoleAuth.redact(block.body))]));
+  setTop('本子', '编辑、查找和版本历史');
+
+  view.innerHTML = `
+    <div class="grid g4" style="margin-bottom:14px">
+      ${tile('写了', `${st.filled || 0} / ${blocks.length}`, '块有内容')}
+      ${tile('总字数', String(st.chars || 0), `每块最多 ${cap} 字`)}
+      ${tile('上次动笔', st.last_write ? fmtTime(st.last_write) : '—', '她或你最后一次改')}
+      ${tile('每轮注入', String(inject), '每块摘录上限')}
+    </div>
+
+    <div class="card">
+      <h3>她写的这几块是什么</h3>
+      <div class="hint">
+        在编辑框保存全文，或展开分页阅读找某一段。每次成功写入保留版本。字数按 Unicode 码点计，换行算一个字。
+      </div>
+    </div>
+
+    ${blocks.map((b) => `
+      <div class="card">
+        <h3>${esc(b.title)}
+          <span class="badge" style="margin-left:6px">${esc(b.slug)}</span>
+          <span class="badge" style="margin-left:4px">v${b.version || 0}</span>
+          <span class="spacer" style="flex:1"></span>
+          <span class="lo" style="font-size:11.5px">${b.updated_at ? fmtTime(b.updated_at) : '还没写过'}</span>
+        </h3>
+        <label class="f"><span class="lab">内容 <b class="bc" data-slug="${b.slug}">${textChars(bodies.get(b.slug))}</b> / ${cap}</span>
+          <textarea rows="4" data-body="${b.slug}"></textarea></label>
+        <div class="row" style="margin-top:8px">
+          <button class="btn primary sm" data-save="${b.slug}">保存</button>
+          <button class="btn sm" data-clear="${b.slug}">清空</button>
+          <button class="btn sm" data-hist="${b.slug}">历史${b.version ? `（${b.version}）` : ''}</button>
+        </div>
+        <details data-book-read="${b.slug}" style="margin-top:12px">
+          <summary>阅读已保存内容与搜索</summary>
+          <form class="row" style="margin:10px 0">
+            <input type="text" aria-label="搜索本块原文" placeholder="输入原文中的字或词">
+            <button class="btn sm" type="submit">查找下一处</button>
+          </form>
+          <div class="row" style="margin-bottom:8px">
+            <button class="btn sm" type="button" data-page-prev>上一页</button>
+            <span data-page-status class="hint" aria-live="polite"></span>
+            <button class="btn sm" type="button" data-page-next>下一页</button>
+          </div>
+          <div class="item" data-book-page></div>
+        </details>
+        <div class="list" data-histbox="${b.slug}" style="display:${BOOK_OPEN[b.slug] ? 'block' : 'none'};margin-top:10px"></div>
+      </div>`).join('')}
+
+    <div class="card">
+      <h3>每轮注入预览</h3>
+      <div class="hint">每块最多 ${inject} 字。长文优先显示最近一次追加的段落，其次取最近改动附近的一段。自动日记显示最近记录。</div>
+      <pre class="log" style="max-height:320px;white-space:pre-wrap">${esc(d.rendered || '')}</pre>
+    </div>`;
+
+  view.querySelectorAll('textarea[data-body]').forEach((el) => {
+    el.value = bodies.get(el.dataset.body);
+    const counter = view.querySelector(`.bc[data-slug="${el.dataset.body}"]`);
+    el.oninput = () => updateTextCount(el, counter, cap);
+    el.oninput();
+  });
+  view.querySelectorAll('[data-book-read]').forEach(reader => {
+    reader.ontoggle = () => {
+      if (!reader.open || reader.dataset.ready) return;
+      reader.dataset.ready = '1';
+      bindBookReader(reader, bodies.get(reader.dataset.bookRead));
+    };
+  });
+
+  view.querySelectorAll('[data-save]').forEach((btn) => {
+    btn.onclick = async () => {
+      const slug = btn.dataset.save;
+      const text = view.querySelector(`textarea[data-body="${slug}"]`).value;
+      const length = textChars(text);
+      if (length > cap) return toast(`每块本子最多 ${cap} 字，当前 ${length} 字。`, true);
+      btn.disabled = true;
+      try {
+        await api('/blocks', { method: 'POST', body: { op: 'set', block: slug, mode: 'replace', text, note: '控制台', by: 'console' } });
+        toast('已存下这一版');
+        delete BOOK_CACHE[slug];
+        route();
+      } catch (e) { toast('保存失败：' + e.message, true); }
+      finally { btn.disabled = false; }
+    };
+  });
+
+  view.querySelectorAll('[data-clear]').forEach((btn) => {
+    btn.onclick = async () => {
+      const slug = btn.dataset.clear;
+      if (!confirm(`把「${slug}」这块清空？旧内容还在历史里，能退回来。`)) return;
+      try {
+        await api('/blocks', { method: 'POST', body: { op: 'set', block: slug, mode: 'clear', note: '控制台清空', by: 'console' } });
+        toast('已清空'); delete BOOK_CACHE[slug]; route();
+      } catch (e) { toast('清空失败：' + e.message, true); }
+    };
+  });
+
+  view.querySelectorAll('[data-hist]').forEach((btn) => {
+    btn.onclick = async () => {
+      const slug = btn.dataset.hist;
+      const box = view.querySelector(`[data-histbox="${slug}"]`);
+      const open = box.style.display !== 'none';
+      if (open) { box.style.display = 'none'; BOOK_OPEN[slug] = false; return; }
+      box.style.display = 'block'; BOOK_OPEN[slug] = true;
+      box.innerHTML = '<div class="empty">读取中…</div>';
+      try {
+        const r = BOOK_CACHE[slug] || (await api('/blocks/versions?block=' + slug));
+        BOOK_CACHE[slug] = r;
+        const vs = (r && r.versions) || [];
+        box.innerHTML = vs.length ? vs.map((v) => `
+          <div class="item">
+            <div class="t" style="font-weight:500;font-size:12.5px">v${v.version}
+              <span class="badge">${esc(v.op || 'replace')}</span>
+              <span class="lo">${fmtTime(v.ts)}</span>
+              ${v.note ? `<span class="lo">· ${esc(v.note)}</span>` : ''}
+            </div>
+            <div class="meta"><span style="white-space:pre-wrap">${esc(String(v.body || '').slice(0, 90))}${String(v.body || '').length > 90 ? '…' : ''}</span>
+              <span class="spacer" style="flex:1"></span>
+              <button class="btn sm" data-rev="${slug}" data-vid="${v.id}" data-vno="${v.version}">退回这版</button>
+            </div>
+          </div>`).join('') : '<div class="empty">还没有版本。她写第一次之后这里就有东西了。</div>';
+        box.querySelectorAll('[data-rev]').forEach((b) => {
+          b.onclick = async () => {
+            if (!confirm(`退回 v${b.dataset.vno}？当前内容会作为一个新版本留下，不会丢。`)) return;
+            try {
+              await api('/blocks', { method: 'POST', body: { op: 'revert', block: b.dataset.rev, version_id: Number(b.dataset.vid) } });
+              toast(`已退回 v${b.dataset.vno}`); delete BOOK_CACHE[b.dataset.rev]; route();
+            } catch (e) { toast('回滚失败：' + e.message, true); }
+          };
+        });
+      } catch (e) { box.innerHTML = `<div class="empty">读不到历史：${esc(e.message)}</div>`; }
+    };
+    if (BOOK_OPEN[btn.dataset.hist]) {
+      view.querySelector(`[data-histbox="${btn.dataset.hist}"]`).style.display = 'none';
+      btn.click();
+    }
+  });
+}
+
+async function renderLoops(view) {
+  const d = await api('/loops?status=open');
+  const loops = d.loops || [];
+  const { title_chars: titleLimit, detail_chars: detailLimit } = d.limits || {};
+  if (![titleLimit, detailLimit].every(Number.isSafeInteger)) {
+    view.textContent = '服务还未报告新版字数上限。完成托管重启后再写清单。';
+    return;
+  }
+  setTop('清单', '她自己的待办本——能写、能改、能划掉', '');
+  view.innerHTML = `
+    <div class="card">
+      <h3>未完成（${loops.length}）</h3>
+      <div class="hint">清单上的事会在她「醒来」时被带进第一句话。写具体一点效果最好。</div>
+      <div class="list">
+        ${loops.map((l) => `
+          <div class="item">
+            <div class="t">${esc(l.title)}</div>
+            ${l.detail ? `<details style="margin:4px 0"><summary>详情</summary><div style="white-space:pre-wrap">${esc(l.detail)}</div></details>` : ''}
+            <div class="meta">
+              <span class="badge">${esc(l.kind)}</span>
+              <span>权重 ${Number(l.weight).toFixed(2)}</span>
+              ${l.due_at ? `<span>到期 ${fmtTime(l.due_at)}</span>` : '<span class="lo">没有期限</span>'}
+              <span>提过 ${l.surface_count || 0} 次</span>
+              <span class="spacer" style="flex:1"></span>
+              <button class="btn sm" data-edit-loop="${l.id}">编辑</button>
+              <button class="btn sm" data-w="${l.id}" data-v="${Math.min(1, Number(l.weight) + 0.1).toFixed(2)}">加权重</button>
+              <button class="btn sm" data-close="${l.id}">划掉</button>
+            </div>
+          </div>`).join('') || '<div class="empty">空的。她还没记下什么。</div>'}
+      </div>
+    </div>
+    <div class="card" id="loopEditor">
+      <h3 id="loopEditorTitle">加一条</h3>
+      <label class="f"><span class="lab">标题 <b id="ltCount">0</b> / ${titleLimit}</span>
+        <input type="text" id="lt" placeholder="十月三十一号说好十点写空间日记，那篇还没动"></label>
+      <label class="f"><span class="lab">详情 <b id="ldCount">0</b> / ${detailLimit}</span>
+        <textarea rows="4" id="ld" placeholder="做到哪了，下次从哪里接"></textarea></label>
+      <div class="row">
+        <select id="lk" style="max-width:150px">
+          <option value="unfinished">没聊完的话</option>
+          <option value="promise">答应的事</option>
+          <option value="debt">欠着的</option>
+          <option value="plan">计划</option>
+        </select>
+        <input type="number" id="lw" value="0.6" min="0" max="1" step="0.05" style="max-width:90px" title="权重">
+        <button class="btn primary sm" id="ladd">加进去</button>
+        <button class="btn sm" id="lcancel" hidden>取消编辑</button>
+      </div>
+    </div>`;
+
+  const titleInput = view.querySelector('#lt'), detailInput = view.querySelector('#ld');
+  const save = view.querySelector('#ladd'), cancel = view.querySelector('#lcancel');
+  const kind = view.querySelector('#lk'), weight = view.querySelector('#lw');
+  let editing = null;
+  titleInput.oninput = () => updateTextCount(titleInput, view.querySelector('#ltCount'), titleLimit);
+  detailInput.oninput = () => updateTextCount(detailInput, view.querySelector('#ldCount'), detailLimit);
+  function edit(item) {
+    editing = item;
+    titleInput.value = ConsoleAuth.redact(item?.title);
+    detailInput.value = ConsoleAuth.redact(item?.detail);
+    titleInput.oninput(); detailInput.oninput();
+    const isEditing = Boolean(item);
+    kind.disabled = isEditing;
+    weight.disabled = isEditing;
+    cancel.hidden = !isEditing;
+    save.textContent = isEditing ? '保存修改' : '加进去';
+    view.querySelector('#loopEditorTitle').textContent = isEditing ? '编辑清单 #'+item.id : '加一条';
+  }
+  cancel.onclick = () => edit(null);
+  view.querySelectorAll('[data-edit-loop]').forEach(button => button.onclick = () => {
+    edit(loops.find(item => String(item.id) === button.dataset.editLoop));
+    view.querySelector('#loopEditor').scrollIntoView({ block: 'nearest' });
+    titleInput.focus({ preventScroll: true });
+  });
+  save.onclick = async () => {
+    const title = titleInput.value, detail = detailInput.value;
+    const titleLength = textChars(title), detailLength = textChars(detail);
+    if (titleLength > titleLimit) return toast(`清单标题最多 ${titleLimit} 字，当前 ${titleLength} 字。`, true);
+    if (detailLength > detailLimit) return toast(`清单详情最多 ${detailLimit} 字，当前 ${detailLength} 字。`, true);
+    if (textChars(title.trim()) < 2) return toast('标题至少写两个字。', true);
+    const body = editing ? { op: 'update', id: editing.id, title, detail }
+      : { op: 'add', title, detail, kind: kind.value, weight: Number(weight.value) };
+    save.disabled = true;
+    try {
+      await api('/loops', { method: 'POST', body });
+      toast(editing ? '清单已更新' : '已加入清单'); route();
+    } catch (e) { toast(e.message, true); }
+    finally { save.disabled = false; }
+  };
+  view.querySelectorAll('[data-close]').forEach((b) => {
+    b.onclick = async () => {
+      try { await api('/loops', { method: 'POST', body: { op: 'close', id: Number(b.dataset.close) } });
+        toast('划掉了'); route(); } catch (e) { toast(e.message, true); }
+    };
+  });
+  view.querySelectorAll('[data-w]').forEach((b) => {
+    b.onclick = async () => {
+      try { await api('/loops', { method: 'POST', body: { op: 'update', id: Number(b.dataset.w), weight: Number(b.dataset.v) } });
+        route(); } catch (e) { toast(e.message, true); }
+    };
+  });
+}
+
+/* Operation ledger: credentials live only in this closure. */
+const AuditPanel = (() => {
+  let auth = null, filters = { kind: '', days: '7' }, serial = 0, controller = null;
+  let items = [], cursor = null, container = null;
+  const labels = { judge: '判断', drop: '放弃', extract: '提炼', delete: '删除', archive: '归档', restore: '恢复', merge: '合并', downgrade: '资格受限' };
+  const states = { found: '找到记录（found）', suspected: '证据不足（suspected）', absent: '查过未找到（absent）', not_checked: '未查询（not_checked）', completed: '已完成', audit_only: '仅有审计', receipt_only: '仅有回执', failed: '当前失败' };
+  const operations = { soft: '软删除', hard: '硬删除', archive: '归档', restore: '恢复归档', restore_soft: '恢复软删除', purge: '彻底清理', failed: '未完成' };
+  const safe = value => esc(auth?.credential ? String(value ?? '').split(auth.credential).join('[凭据已隐藏]') : value);
+  const uiError = status => status === 401 || status === 403 ? '授权未通过，请检查管理令牌、会话范围和范围凭据。' : status === 409 ? '记录或状态已变化，请刷新后重新核对。' : status === 413 ? '这个时间范围记录过多，请缩小范围。' : status === 400 ? '筛选或分页条件无效，请重新查询。' : '暂时无法读取账本，请稍后刷新。';
+
+  async function requestLedger(path, body, signal) {
+    if (!auth) throw new Error('请先连接一个会话范围。');
+    return ConsoleAuth.request(path, { body, signal, scoped: true });
+  }
+
+  function connectedView() { return container?.isConnected && currentId() === 'ledger'; }
+
+  async function load(more = false) {
+    if (!auth || !connectedView()) return;
+    controller?.abort(); controller = new AbortController();
+    const generation = ++serial, session = auth;
+    const output = container.querySelector('#auditOutput'), note = container.querySelector('#auditNotice');
+    if (!more) {
+      items = []; cursor = null; output.innerHTML = '<div class="empty">读取已记录的事件…</div>';
+      ['#auditSummary', '#auditStats', '#auditLimits'].forEach(id => container.querySelector(id).textContent = '');
+    }
+    note.textContent = '正在读取当前范围…';
+    container.querySelector('#auditMore').disabled = true;
+    const params = new URLSearchParams({ ...session.scope, kind: filters.kind, days: filters.days, limit: '50' });
+    if (more && cursor) params.set('cursor', cursor);
+    try {
+      const data = await requestLedger('/api/console/ledger/events?' + params, null, controller.signal);
+      if (generation !== serial || session !== auth || !connectedView()) return;
+      auth.verified = true; container.querySelector('#auditConnectionState').textContent = '已授权当前范围';
+      items = more ? items.concat(data.items || []) : (data.items || []);
+      cursor = data.next_cursor;
+      const counts = data.summary?.by_kind || {}, sourceIssues = data.summary?.issues || {};
+      container.querySelector('#auditSummary').innerHTML = `
+        <span class="badge">${safe(data.summary?.total ?? '未知')} 条已记录事件</span>
+        ${Object.entries(labels).filter(([kind]) => counts[kind]).map(([kind, label]) => `<span>${label} ${safe(counts[kind])}</span>`).join('')}`;
+      const incomplete = Object.values(data.summary?.source_status || {}).some(value => value !== 'read');
+      note.textContent = `${incomplete ? '部分数据源缺失；' : ''}本范围当前显示 ${items.length} 条。时间均为上海记账时间；只统计已写账事件，空白不代表没有发生。`;
+      container.querySelector('#auditLimits').textContent =
+        `环境未核实：${data.summary?.environment_unknown ?? '未知'} 条；人工复核与许可对象没有随旧账完整记录，不能把 found 当作内容已证实。` +
+        (Object.keys(sourceIssues).length ? ' 另有未映射或未配对记录，详见筛选统计。' : '');
+      container.querySelector('#auditStats').textContent = JSON.stringify({ ...data.summary, time_window: data.time_window }, null, 2);
+      output.innerHTML = items.length ? items.map(card).join('') : '<div class="card"><div class="empty">本范围、这个时间窗没有可显示的已记录事件。</div></div>';
+      container.querySelector('#auditMore').disabled = !cursor;
+      bindRestore();
+    } catch (error) {
+      if (error.name === 'AbortError' || generation !== serial || session !== auth || !connectedView()) return;
+      if (error.status === 401 || error.status === 403) {
+        auth = null; container.querySelector('#auditConnectionState').textContent = '授权未通过';
+      }
+      note.textContent = error.message;
+      if (!more) output.innerHTML = '<div class="card"><div class="hint">读取未完成，没有把失败当作“0条”。可以稍后刷新。</div></div>';
+      container.querySelector('#auditMore').disabled = !cursor;
+    }
+  }
+
+  function card(item, index) {
+    const summary = item.kind === 'judge' ? item.query : item.reason || item.reason_code || `${labels[item.kind] || item.kind} #${item.memory_id || item.job_id || ''}`;
+    const pointers = [item.evidence_raw_id, ...(item.raw_ids || [])].filter(Boolean);
+    return `<article class="card audit-item">
+      <div class="row"><span class="badge">${safe(labels[item.kind] || item.kind)}</span>
+        <span class="badge">${safe(states[item.state] || operations[item.operation] || item.state || '已记录')}</span>
+        <time class="lo" style="margin-left:auto">${safe(item.at_text)}</time></div>
+      <p class="audit-description">${safe(summary)}</p>
+      ${item.gap_summary ? `<p class="hint">缺口：${safe(item.gap_summary)}</p>` : ''}
+      <div class="hint">触发者：${safe(({ user: '用户', assistant: '助手', auto: '自动规则', unknown: '未标注' })[item.actor] || '未标注')}${item.memory_id ? ` · 记忆 #${safe(item.memory_id)}` : ''}
+        ${item.request_id ? ` · 请求 ${safe(item.request_id)}` : ''}</div>
+      ${pointers.length ? `<div class="audit-pointers">证据 ID：${pointers.map(id => `<code>${safe(id)}</code>`).join(' ')}</div>` : ''}
+      <div class="row"><span class="lo">${item.restore?.allowed ? '当前可恢复到记录的前态' : item.reversible ? '当时可逆；当前恢复资格未通过' : '此记录没有可执行的恢复入口'}</span>
+        ${item.restore?.allowed ? `<button class="btn sm" type="button" data-audit-restore="${index}">恢复</button>` : ''}</div>
+      <details class="audit-json"><summary>展开事件 JSON</summary><pre>${safe(JSON.stringify(item, null, 2))}</pre></details>
+    </article>`;
+  }
+
+  function bindRestore() {
+    container.querySelectorAll('[data-audit-restore]').forEach(button => {
+      const item = items[Number(button.dataset.auditRestore)];
+      let armed = false, requestId = null;
+      button.onclick = async () => {
+        if (!armed) { armed = true; button.textContent = '确认恢复这一次归档'; return; }
+        const session = auth;
+        requestId ||= crypto.randomUUID(); button.disabled = true;
+        try {
+          await requestLedger('/api/console/ledger/restore', {
+            memory_id: item.memory_id, source_audit_id: item.audit_id,
+            source_request_id: item.request_id, request_id: requestId,
+          });
+          if (session !== auth || !connectedView()) return;
+          toast('恢复操作已完成并留回执。'); await load();
+        } catch (error) {
+          if (session !== auth || !connectedView()) return;
+          toast(error.message, true); button.disabled = false; button.textContent = '重试这一次恢复';
+        }
+      };
+    });
+  }
+
+  function disconnect() {
+    controller?.abort(); ++serial; auth = null; items = []; cursor = null;
+    if (connectedView()) render(container);
+  }
+
+  function render(view, kind = '') {
+    controller?.abort(); ++serial; container = view; auth = ConsoleAuth.scope(); filters.kind = kind;
+    setTop('操作账本', '按会话查看已记录的判断、取舍与变更');
+    const scope = auth?.scope || { bot_id: '', persona: '', conv_key: '' };
+    view.innerHTML = `
+<span id="auditConnectionState" class="badge">当前范围待读取验证</span>
+      <section class="card">
+        <div class="row">
+          <label>类型<select id="auditKind"><option value="${kind}">当前分区</option><option value="">全部</option>${Object.entries(labels).map(([value, label]) => `<option value="${value}" ${filters.kind === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+          <label>时间范围<select id="auditDays">${[['1', '近24小时'], ['7', '近7天'], ['30', '近30天'], ['0', '全部已记录']].map(([value, label]) => `<option value="${value}" ${filters.days === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+          <button class="btn" id="auditRefresh" type="button">刷新</button>
+        </div>
+        <div id="auditSummary" class="row" aria-live="polite" style="margin-top:12px"></div>
+        <p class="hint" id="auditNotice" role="status">${auth ? '正在读取…' : '先连接一个会话范围，才会读取账本。'}</p>
+        <p class="hint" id="auditLimits"></p>
+        <details><summary>筛选统计与覆盖说明</summary><pre class="audit-json" id="auditStats"></pre></details>
+      </section>
+      <section id="auditOutput" aria-live="polite"></section>
+      <button class="btn" id="auditMore" type="button" disabled>加载更早记录</button>`;
+    view.querySelector('#auditRefresh').onclick = () => auth ? load() : toast('请先连接一个会话范围。', true);
+    ['#auditKind', '#auditDays'].forEach(id => view.querySelector(id).onchange = () => {
+      filters = { kind: view.querySelector('#auditKind').value, days: view.querySelector('#auditDays').value };
+      if (auth) load();
+    });
+    view.querySelector('#auditMore').onclick = () => { if (cursor) load(true); };
+    if (auth) return load();
+  }
+  return { render };
+})();
+function renderAudit(view) { return AuditPanel.render(view); }
+
+
+let LEDGER_FILTER = { kind: '', verdict: '' };
+const LEDGER_KIND = { judge: '判断', road: '岔路', overturn: '推翻', miss: '偏差' };
+
+async function renderLedger(view) {
+  const qs = `?kind=${encodeURIComponent(LEDGER_FILTER.kind)}&verdict=${encodeURIComponent(LEDGER_FILTER.verdict)}&limit=80`;
+  const d = await api('/ledger' + qs);
+  const rows = d.records || [];
+  const st = d.stats || {};
+  const reviews = d.reviews || [];
+  const hit = st.hit_rate == null ? '—' : `${Math.round(st.hit_rate * 100)}%`;
+  setTop('判断账', '她自己做过的判断、走岔的路、改过的口——错过的留形状，下次在同一个形状上停一下', '');
+
+  view.innerHTML = `
+    <div class="grid g4" style="margin-bottom:14px">
+      ${tile('记下的', String(st.total || 0), '条：判断/岔路/推翻/偏差')}
+      ${tile('判断命中', hit, st.resolved ? `${st.resolved} 条有结果` : '还没有结果')}
+      ${tile('待回填', String(st.pending || 0), '大判断（stakes=big）超两天才催')}
+      ${tile('已推翻', String((st.by_verdict || {})['已推翻'] || 0), '判错并已经记下教训')}
+    </div>
+
+    <div class="card">
+      <h3>这本账是什么</h3>
+      <div class="hint">
+        记忆记的是「发生过什么」，本子记的是「我怎么理解我自己」，这本账记的是
+        <b>「我凭什么这么想、后来对不对」</b>。她在 QQ 里用
+        <code>##判断##</code> 自己写，你在这也能改。<br>
+        硬规矩两条：① 判断一旦落账，原本的判断和当时的理由<b>不许改</b>，只能补结果——
+        允许事后改「我当时是怎么想的」，整本账就变成了自我美化；
+        ② 小得没有结果可追的事不要记，记了就是攒一堆永远不会被验证的句子。
+      </div>
+      <div class="row" style="margin-top:10px">
+        ${[['', '全部'], ['judge', '判断'], ['road', '岔路'], ['overturn', '推翻'], ['miss', '偏差']].map(([k, n]) =>
+          `<button class="btn sm ${LEDGER_FILTER.kind === k ? 'primary' : ''}" data-fk="${k}">${n}</button>`).join('')}
+        <span class="lo" style="width:10px"></span>
+        ${[['', '全部'], ['pending', '待回填'], ['已验证', '已验证'], ['已推翻', '已推翻']].map(([k, n]) =>
+          `<button class="btn sm ${LEDGER_FILTER.verdict === k ? 'primary' : ''}" data-fv="${k}">${n}</button>`).join('')}
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn sm" id="lgReview">让她回看一遍</button>
+      </div>
+    </div>
+
+    ${rows.length ? rows.map(ledgerCard).join('') : '<div class="card"><div class="empty">这本账还是空的。等她第一次记下「我当时以为……」，这里就开始有东西了。</div></div>'}
+
+    ${reviews.length ? `
+      <div class="card">
+        <h3>阶段总结
+          <span class="badge" style="margin-left:6px">${reviews.length} 次</span>
+          <span class="spacer" style="flex:1"></span>
+          <span class="lo" style="font-size:11.5px">最近 ${fmtTime(reviews[0].created_at)}</span>
+        </h3>
+        ${reviews.slice(0, 3).map((r) => `
+          <div class="item">
+            <div class="t" style="font-weight:500;font-size:12.5px">${esc(String(r.summary || '').slice(0, 300))}</div>
+            ${(r.patterns || []).map((p) => `<div class="lo" style="margin-top:4px">· 模式：${esc(p.pattern || '')}
+              ${p.advice ? `→ ${esc(p.advice)}` : ''}</div>`).join('')}
+            ${(r.links || []).length ? `<div class="lo" style="margin-top:4px">连起来的：${(r.links || []).map((l) =>
+              `${esc(l.a || '')}—${esc(l.relation || '')}—${esc(l.b || '')}`).join('；')}</div>` : ''}
+            <div class="lo" style="margin-top:4px">${esc(r.created_by || 'auto')} · 覆盖 ${Math.round(((r.period_end || 0) - (r.period_start || 0)) / 86400)} 天</div>
+          </div>`).join('')}
+      </div>` : ''}
+
+    <div class="card">
+      <h3>她这一轮实际看到的</h3>
+      <div class="hint">每轮跟着本子一起注入的摘要（不是全本）。太长了会挤掉回忆，所以只留最近的教训和没回填的几条。</div>
+      <pre class="log" style="max-height:300px;white-space:pre-wrap">${esc(d.rendered || '')}</pre>
+    </div>`;
+
+  view.querySelectorAll('[data-fk]').forEach((b) => {
+    b.onclick = () => { LEDGER_FILTER.kind = b.dataset.fk; route(); };
+  });
+  view.querySelectorAll('[data-fv]').forEach((b) => {
+    b.onclick = () => { LEDGER_FILTER.verdict = b.dataset.fv; route(); };
+  });
+  const rv = document.getElementById('lgReview');
+  if (rv) rv.onclick = async () => {
+    rv.disabled = true; rv.textContent = '正在翻旧账…';
+    try {
+      const r = await api('/ledger', { method: 'POST', body: { op: 'review', by: 'console' } });
+      if (r && r.ok) toast(`回看完了：${r.patterns || 0} 条模式，${r.links || 0} 条连线`);
+      else toast((r && (r.skipped || r.error)) || '没有可总结的内容', true);
+      route();
+    } catch (e) { toast('回看失败：' + e.message, true); rv.disabled = false; rv.textContent = '让她回看一遍'; }
+  };
+
+  // 回填：已验证 / 已推翻
+  view.querySelectorAll('[data-fill]').forEach((b) => {
+    b.onclick = async () => {
+      const id = b.dataset.fill;
+      const vd = b.dataset.vd;
+      const outcome = view.querySelector(`[data-out="${id}"]`).value.trim();
+      const lesson = view.querySelector(`[data-les="${id}"]`).value.trim();
+      if (outcome.length < 2) return toast('先写一句实际发生了什么', true);
+      if (vd === '已推翻' && lesson.length < 2 && !confirm('判错了但没写教训。就这样存？')) return;
+      try {
+        await api('/ledger', { method: 'POST', body: { op: 'result', id: Number(id), outcome, verdict: vd, lesson } });
+        toast(vd === '已推翻' ? '记下了，这条也进了偏差档案' : '记下了'); route();
+      } catch (e) { toast(e.message, true); }
+    };
+  });
+  view.querySelectorAll('[data-drop]').forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm('把这条从账本里划掉？记录会归档，不删。')) return;
+      try { await api('/ledger', { method: 'POST', body: { op: 'drop', id: Number(b.dataset.drop) } }); route(); }
+      catch (e) { toast(e.message, true); }
+    };
+  });
+}
+
+function ledgerCard(r) {
+  const kind = LEDGER_KIND[r.kind] || r.kind;
+  const vd = r.verdict || 'pending';
+  const cls = vd === '已验证' ? 'ok' : vd === '已推翻' ? 'warn' : '';
+  const alts = (r.alternatives || []).filter((a) => a && a.road);
+  return `<div class="card">
+    <h3>
+      <span class="badge">#${r.id} ${esc(kind)}</span>
+      ${vd !== 'pending' ? `<span class="badge ${cls}" style="margin-left:4px">${esc(vd)}</span>` : ''}
+      ${r.stakes === 'big' ? '<span class="badge" style="margin-left:4px">大事</span>' : ''}
+      <span class="spacer" style="flex:1"></span>
+      <span class="lo" style="font-size:11.5px">${fmtTime(r.created_at)}</span>
+    </h3>
+    <div style="font-size:13px;line-height:1.6;margin:2px 0 6px">${esc(r.claim)}</div>
+    ${r.reason ? `<div class="hint">当时想：${esc(r.reason)}</div>` : ''}
+    ${r.expected ? `<div class="hint">预期：${esc(r.expected)}</div>` : ''}
+    ${r.chosen ? `<div class="hint">选了：${esc(r.chosen)}</div>` : ''}
+    ${alts.map((a) => `<div class="hint">没走：${esc(a.road)}${a.why_not ? `（${esc(a.why_not)}）` : ''}</div>`).join('')}
+    ${r.outcome ? `<div class="hint" style="color:${vd === '已推翻' ? 'var(--warn,#e0a33e)' : 'var(--ok,#5bbf8a)'}">后来：${esc(r.outcome)}</div>` : ''}
+    ${r.lesson ? `<div class="hint">教训：${esc(r.lesson)}</div>` : ''}
+    ${vd === 'pending' && r.kind === 'judge' ? `
+      <div class="row" style="margin-top:8px">
+        <input data-out="${r.id}" placeholder="实际发生了什么（一句话）" style="flex:1;min-width:180px">
+        <input data-les="${r.id}" placeholder="教训（可以空）" style="flex:1;min-width:150px">
+        <button class="btn sm primary" data-fill="${r.id}" data-vd="已验证">已验证</button>
+        <button class="btn sm" data-fill="${r.id}" data-vd="已推翻">已推翻</button>
+      </div>` : ''}
+    <div class="row" style="margin-top:6px">
+      <button class="btn sm" data-drop="${r.id}">划掉</button>
+    </div>
+  </div>`;
+}
+
+function getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+const APPLY_BADGE = {
+  hot:     ['ok',   '保存即生效'],
+  mixed:   ['warn', '部分需重启'],
+  restart: ['warn', '改完需重启'],
+  offline: ['bad',  '服务没在跑'],
+};
+
+function tuneCardHtml(g, conf) {
+  const dirty = DIRTY[g.target] || {};
+  const badge = g.target === 'bridge' ? 'QQ 桥接' : '记忆库';
+  const ap = g.apply || { apply: g.target === 'memory' ? 'hot' : 'restart', why: '' };
+  const [cls, text] = APPLY_BADGE[ap.apply] || APPLY_BADGE.restart;
+  const cold = (ap.cold || []).length ? `；只能重启生效：${ap.cold.join('、')}` : '';
+  return `<div class="card">
+    <h3>${esc(g.title)}<span class="badge" style="margin-left:6px">${badge}</span>
+      <span class="badge ${cls}" style="margin-left:4px" title="${esc((ap.why || '') + cold)}">${text}</span></h3>
+    <div class="hint">${esc(g.desc || '')}</div>
+    <div class="grid ${g.fields.length > 1 ? 'g2' : ''}">
+      ${g.fields.map((f) => fieldHtml({ ...f, target: g.target }, conf, dirty)).join('')}
+    </div>
+  </div>`;
+}
+
+function fieldHtml(f, conf, dirty) {
+  const cur = f.path in dirty ? dirty[f.path] : getPath(conf, f.path);
+  const base = `data-path="${esc(f.path)}" data-target="${esc(f.target || '')}" data-type="${f.type}"`;
+  let control = '';
+  if (f.type === 'bool') {
+    control = `<label class="sw"><input type="checkbox" ${base} ${cur ? 'checked' : ''}><span></span></label>`;
+    return `<label class="f" style="display:flex;align-items:center;gap:12px">
+      <span style="flex:1"><span class="lab" style="margin:0">${esc(f.label)}</span>
+      ${f.hint ? `<span class="tip">${esc(f.hint)}</span>` : ''}</span>${control}</label>`;
+  }
+  if (f.type === 'select') {
+    control = `<select ${base}>${(f.options || []).map((o) =>
+      `<option value="${esc(o.v)}" ${o.v === cur ? 'selected' : ''}>${esc(o.t)}</option>`).join('')}</select>`;
+  } else if (f.type === 'textarea') {
+    control = `<textarea ${base} rows="${f.rows || 4}">${esc(cur ?? '')}</textarea>`;
+  } else if (f.type === 'percent') {
+    control = `<div class="row"><input type="range" min="0" max="1" step="0.01" value="${Number(cur) || 0}" ${base} style="flex:1">
+      <b style="min-width:42px;text-align:right;font-variant-numeric:tabular-nums">${pct(cur)}</b></div>`;
+  } else if (f.type === 'ms') {
+    const mins = cur ? Math.round(Number(cur) / 60000) : 0;
+    control = `<div class="row"><input type="number" min="0" step="1" value="${mins}" ${base} style="max-width:110px">
+      <b class="msval" style="font-size:11.5px;color:var(--muted)">= ${mins} 分钟</b></div>`;
+  } else if (f.type === 'secret') {
+    control = `<input type="password" ${base} placeholder="${esc(cur ?? '')}" autocomplete="off">`;
+  } else if (f.type === 'number') {
+    control = `<input type="number" ${base} value="${esc(cur ?? '')}" min="${f.min ?? ''}" max="${f.max ?? ''}" step="${f.step ?? 1}">`;
+  } else {
+    control = `<input type="text" ${base} value="${esc(cur ?? '')}">`;
+  }
+  return `<label class="f"><span class="lab">${esc(f.label)}</span>${control}
+    ${f.hint ? `<span class="tip">${esc(f.hint)}</span>` : ''}</label>`;
+}
+
+async function renderTune(view) {
+  SCHEMA = await api('/schema');
+  const wanted = [...new Set(SCHEMA.groups.map(group => group.target))], targets = {}, errors = {};
+  await Promise.all(wanted.map(async target => {
+    try { targets[target] = await api('/config?target=' + encodeURIComponent(target)); }
+    catch (error) { if (error.name === 'AbortError') throw error; errors[target] = error.message; }
+  }));
+  if (!view.isConnected) return;
+  view.innerHTML = '<section id="tuneDrift"></section>' + SCHEMA.groups.map(group => errors[group.target]
+    ? `<section class="card"><h3>${esc(group.title)}</h3><p class="hint">${esc(errors[group.target])} 这一组没有载入，不显示空配置。</p></section>`
+    : tuneCardHtml(group, targets[group.target])).join('');
+  view.querySelectorAll('[data-path]').forEach(element => {
+    const { target, path, type } = element.dataset;
+    element.addEventListener(type === 'bool' ? 'change' : 'input', () => {
+      let value = type === 'bool' ? element.checked : ['number','percent'].includes(type) ? Number(element.value)
+        : type === 'ms' ? Math.round(Number(element.value) * 60000) : element.value;
+      if (type === 'secret' && (!value || String(value).startsWith('••••'))) return;
+      (DIRTY[target] ||= {})[path] = value;
+      const label = element.closest('label.f');
+      if (type === 'percent' && label?.querySelector('.lab b')) label.querySelector('.lab b').textContent = pct(value);
+      if (type === 'ms' && label?.querySelector('.msval')) label.querySelector('.msval').textContent = `= ${element.value} 分钟`;
+      updateSavebar();
+    });
+  });
+  updateSavebar(); await paintDrift(view.querySelector('#tuneDrift'));
+}
+async function paintDrift(box) {
+  try {
+    const data = await api('/drift?target=bridge');
+    if (!box.isConnected) return;
+    if (!data.checked) { box.innerHTML = '<section class="card"><h3>桥接运行值未核对</h3><p class="hint">运行值不可用；没有把未核对显示成零漂移。</p></section>'; return; }
+    box.innerHTML = `<section class="card"><h3>桥接漂移核对 · ${esc(data.count ?? '未知')} 项差异</h3><p class="hint">文件与可读取的运行字段比较，不能据此证明全部配置一致。</p>${(data.diffs || []).slice(0,8).map(item => `<div class="item">${esc(item.label)} · ${esc(item.path)}<div class="meta">文件 ${esc(JSON.stringify(item.file))} / 运行 ${esc(JSON.stringify(item.live))}</div></div>`).join('')}${data.count ? '<button class="btn sm" id="applyHot">将文件值推给运行时</button>' : ''}</section>`;
+    const button = box.querySelector('#applyHot');
+    if (button) button.onclick = async () => {
+      if (!confirm('把当前桥接文件值推给运行时？')) return;
+      button.disabled = true;
+      try { const result = await api('/hot', { method: 'POST', body: { target: 'bridge' } }); toast(`已推送 ${(result.applied || []).length} 项，待重启 ${(result.pending || []).length} 项`); route(); }
+      catch (error) { if (box.isConnected) { toast(error.message, true); button.disabled = false; } }
+    };
+  } catch (error) { if (box.isConnected && error.name !== 'AbortError') box.innerHTML = `<section class="card"><h3>漂移核对未完成</h3><p class="hint">${esc(error.message)}</p></section>`; }
+}
+function updateSavebar() {
+  const count = Object.values(DIRTY).reduce((sum, patch) => sum + Object.keys(patch).length, 0);
+  document.getElementById('dirtyN').textContent = `${count} 项未保存`;
+  document.getElementById('dirtyTip').textContent = count ? '保存后分别报告已应用、待生效和失败项；服务重启需要另行确认。' : '';
+  document.getElementById('savebar').classList.toggle('show', count > 0);
+}
+async function doSave() {
+  const button = document.getElementById('save'); button.disabled = true;
+  let applied = 0, pending = 0, errors = 0;
+  try {
+    for (const target of Object.keys(DIRTY)) {
+      const result = await api('/config', { method: 'POST', body: { target, patch: DIRTY[target] } });
+      applied += (result.applied || []).length; pending += (result.pending || []).length; errors += (result.errors || []).length;
+      if (!(result.errors || []).length) delete DIRTY[target];
+    }
+    updateSavebar();
+    toast(`已应用 ${applied} 项，待生效 ${pending} 项，失败 ${errors} 项。${pending ? '请到服务状态核对允许的重启方式。' : ''}`, errors > 0);
+    if (!errors) route();
+  } catch (error) { if (error.name !== 'AbortError') toast(error.message, true); }
+  finally { button.disabled = false; }
+}
+function DIRTY_RESET() { for (const key in DIRTY) delete DIRTY[key]; updateSavebar(); }
+
+/* Service action availability is authoritative server metadata. */
+const SERVICE_ACTIONS = { start: '启动', stop: '停止', restart: '重启' };
+function serviceButtons(service) {
+  return (service.allowed_actions || []).filter(action => action in SERVICE_ACTIONS).map(action =>
+    `<button class="btn sm" data-svc="${esc(service.id)}" data-act="${action}">${SERVICE_ACTIONS[action]}</button>`).join('') || '<span class="badge">无已确认的受控动作</span>';
+}
+async function renderLinks(view) {
+  const data = await api('/services');
+  if (!view.isConnected) return;
+  const services = data.services || [];
+  const observed = value => value === true ? '是' : value === false ? '否' : '未知';
+  view.innerHTML = '<section class="card"><h3>服务状态与受控操作</h3><p class="hint">监听、进程识别与应用响应分开看。只有服务器明确允许的动作才提供按钮；本页读取不会启停进程。</p><div class="row"><button class="btn sm" id="batchStart">启动允许的子服务</button><button class="btn sm" id="batchStop">停止允许的子服务</button></div></section><div class="grid g2">' + services.map(service => `<section class="card svc-card"><div class="row"><h3>${esc(service.name)}</h3><span class="spacer"></span><span class="badge ${service.up ? 'ok' : 'warn'}">${service.up ? '有监听/进程信号' : '未观察到信号'}</span></div><p class="hint">${esc(service.role)} · 注册端口 ${esc(service.port || '无')}<br>监听 ${observed(service.listening)} · 进程识别 ${observed(service.process?.identified)} · HTTP响应 ${observed(service.http?.responding)} · 就绪 ${observed(service.readiness?.ready)}</p>${service.control_reason === 'unverified_current_entry' ? '<p class="hint">当前服务正在响应；尚未核定控制台内的同实例托管入口，请通过既有托管入口重启。</p>' : ''}<div class="row">${serviceButtons(service)}<span class="svclog" role="status"></span></div></section>`).join('') + '</div>';
+  view.querySelectorAll('[data-svc]').forEach(button => button.onclick = async () => {
+    const service = services.find(item => item.id === button.dataset.svc), action = button.dataset.act;
+    if (!confirm(`确认${SERVICE_ACTIONS[action]}「${service.name}」？这会改变运行状态。`)) return;
+    await svcAct(service.id, action, button.closest('.svc-card'));
+  });
+  for (const [id, action] of [['batchStart','start'], ['batchStop','stop']]) view.querySelector('#'+id).onclick = async () => {
+    const skip = new Set(['memory','companion']), order = ['imgapi','tts','bridge','snowluma','browser'];
+    const targets = services.filter(service => !skip.has(service.id) && (service.allowed_actions || []).includes(action) && (action === 'start' ? !service.up : service.up));
+    targets.sort((a,b) => (order.indexOf(a.id) < 0 ? 99 : order.indexOf(a.id)) - (order.indexOf(b.id) < 0 ? 99 : order.indexOf(b.id)));
+    if (action === 'start') targets.reverse();
+    if (!targets.length) return toast('没有符合条件且允许操作的子服务。');
+    if (!confirm(`确认${SERVICE_ACTIONS[action]}：${targets.map(service => service.name).join('、')}？`)) return;
+    for (const service of targets) await svcAct(service.id, action, null, false);
+    route();
+  };
+}
+async function svcAct(id, action, card, refresh = true) {
+  card?.querySelectorAll('button').forEach(button => button.disabled = true);
+  const note = card?.querySelector('.svclog'); if (note) note.textContent = '操作中…';
+  try {
+    const data = await api('/services', { method: 'POST', body: { id, action, confirm: `${action}:${id}` } });
+    toast(data.ok === false ? '操作未完成，请刷新核对。' : '请求已执行，请核对最新服务状态。', data.ok === false);
+    if (refresh && card?.isConnected) route();
+  } catch (error) { if (error.name !== 'AbortError') { toast(error.message, true); if (note?.isConnected) note.textContent = error.message; } }
+  finally { card?.querySelectorAll('button').forEach(button => button.disabled = false); }
+}
+
+document.getElementById('save').onclick = doSave;
+document.getElementById('discard').onclick = () => { DIRTY_RESET(); route(); };
+document.getElementById('reload').onclick = event => { event.preventDefault(); route(); };
+window.addEventListener('hashchange', route);
+buildNav(); ConsoleAuth.init(); route();
+</script>
+</body>
+</html>

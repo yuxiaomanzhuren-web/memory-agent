@@ -1,0 +1,13 @@
+data/
+*.log
+*.bak*
+state/
+__pycache__/
+*.pyc
+config.json
+env-debug.txt
+*credential*.json
+memory-8781.ps1
+start-memory-core*.bat
+_drill/
+_agent_test/
