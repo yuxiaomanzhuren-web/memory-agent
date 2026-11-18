@@ -1440,7 +1440,8 @@ class Handler(BaseHTTPRequestHandler):
 
                     diary = second_batch_services()[0].recall(data) or {}
                     out = TurnRecall(service()).recall(
-                        data, select_hits=lambda hits: merge_turn_recall({'hits': hits}, diary)['hits'])
+                        data, explicit_lookup=False,
+                        select_hits=lambda hits: merge_turn_recall({'hits': hits}, diary)['hits'])
                     # TurnRecall owns the source gate, scoped weights and guard.
                     # A miss must not retry through a weaker legacy surface path.
                     out = merge_turn_recall(out, diary)
@@ -1775,6 +1776,8 @@ def main():
         with ThreadingHTTPServer((HOST, PORT), Handler) as httpd:
             if control:
                 httpd.daemon_threads = False
+            if PORT == 8781:
+                service()  # Prepare the writable store before accepting requests.
             if PORT == 8781 and os.environ.get("MEMORY_PIPELINE_AUTO", "1") == "1":
                 from .memory_pipeline import run_pipeline
 

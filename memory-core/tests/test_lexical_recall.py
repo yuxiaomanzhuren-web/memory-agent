@@ -69,7 +69,11 @@ class LexicalRecallTests(unittest.TestCase):
         self.assertEqual(result['state'], 'absent')
 
     def test_dates_remain_independent_of_word_recovery(self):
-        result = ask('2026-11-13 晚上吃的什么', make_gates('吃了，红烧肉拌饭'))
+        # 原问句「2026-11-13 晚上吃的什么」只对上别的日子的通用动作「吃」，
+        # 无法定位所问那顿饭 —— 那种情况按判据应给 absent，不是 suspected。
+        # 要测「日期独立于词面恢复」，问句里必须带上那顿饭本身（红烧肉拌饭），
+        # 才能让另一日的原话沾边而时间对不上，从而落到 suspected。
+        result = ask('2026-11-13 晚上我吃的是红烧肉拌饭吗', make_gates('吃了，红烧肉拌饭'))
         self.assertEqual(result['state'], 'suspected')
         self.assertIn('时间对不上', result['missing'])
 

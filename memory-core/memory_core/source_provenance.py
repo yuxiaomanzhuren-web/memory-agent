@@ -1,5 +1,7 @@
 """Source labels: classify only at birth; transported missing labels never become claims."""
 from __future__ import annotations
+from contextlib import contextmanager
+from contextvars import ContextVar
 import hashlib
 import json
 import re
@@ -14,11 +16,25 @@ STANCES={'他说','他转述','转述','他引用','引用','他假设','假设'
 CLASSIFIER_VERSION='gate1-source-r9@51672881dfec0e2494c754c67184dbe0f2dd3f5ed6657dcf9a5fcc3524991a28'
 
 _trace_path=None
+_trace_enabled=ContextVar('memory_provenance_trace_enabled', default=True)
+
+
+@contextmanager
+def suppress_trace():
+    token = _trace_enabled.set(False)
+    try:
+        yield
+    finally:
+        _trace_enabled.reset(token)
+
+
 def configure_trace(path):
     global _trace_path
     _trace_path=Path(path)
 
 def emit(event,raw_id,stage,**detail):
+    if not _trace_enabled.get():
+        return
     try:
         line='['+event+'] '+json.dumps(dict(raw_id=str(raw_id or 'unknown')[:256],stage=stage,**detail),ensure_ascii=False)
         print(line,flush=True)

@@ -2,8 +2,10 @@
 import hashlib
 import importlib
 import json
+import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -288,7 +290,41 @@ class RecallTests(Fixture):
             self.remember(f"量子计算研究记录{i}", [ref])
         first = self.recall(limit=100, k=100)
         self.assertEqual(len(first["hits"]), 3)
-        self.assertEqual(first, self.recall(limit=100, k=100))
+        for _ in range(9):
+            self.assertEqual(first, self.recall(limit=100, k=100))
+
+    def test_opted_in_surfacing_logs_hits_and_respects_cooldown(self):
+        for i in range(5):
+            text = f"量子计算研究记录{i}"
+            ref = self.raw(rid=f"raw-{i}", text=text, assign=True)
+            self.remember(text, [ref])
+        conn = self.db.conn
+
+        def schema():
+            return [tuple(row) for row in conn.execute(
+                "SELECT type,name,sql FROM sqlite_master ORDER BY type,name")]
+
+        before = schema()
+        self.assertIn("idx_surface_log", {name for _, name, _ in before})
+        recall = turn.TurnRecall(self.memory)
+        query = {**SCOPE, "text": "量子计算", "diagnostics": True}
+        with patch.object(turn.time, "time", return_value=NOW):
+            first = recall.recall(query, explicit_lookup=False)
+            second = recall.recall(query, explicit_lookup=False)
+        self.assertEqual([hit["id"] for hit in first["hits"]], [1, 2, 3])
+        self.assertEqual([hit["id"] for hit in second["hits"]], [4, 5])
+        attempts = [out["diagnostics"]["attempts"][0] for out in (first, second)]
+        self.assertEqual([attempt["candidate_ids"] for attempt in attempts], [[1, 2, 3, 4, 5]] * 2)
+        self.assertEqual([attempt["cooldown_blocked"] for attempt in attempts], [0, 3])
+        log = conn.execute(
+            "SELECT memory_id,at,why_now FROM memory_surface_log WHERE scope=? ORDER BY id", (KEY,)).fetchall()
+        self.assertEqual([(row[0], row[1]) for row in log], [(i, NOW) for i in range(1, 6)])
+        self.assertTrue(all(row[2] for row in log))
+        self.assertEqual(schema(), before)
+        self.assertEqual(turn.REPEAT_SECONDS, 2 * 3600)
+        with patch.object(turn.time, "time", return_value=NOW + turn.REPEAT_SECONDS):
+            elapsed = recall.recall(query, explicit_lookup=False)
+        self.assertEqual([hit["id"] for hit in elapsed["hits"]], [1, 2, 3])
 
     def test_general_query_never_falls_back_to_raw_rows(self):
         self.raw(assign=True)
@@ -470,16 +506,46 @@ class RecallTests(Fixture):
         before_row = self.db.get_memory(mid)
         before_bytes = (self.root / "2026-11.jsonl").read_bytes()
         before_changes = self.db.conn.total_changes
-        before_tables = list(self.db.conn.execute("SELECT name FROM sqlite_master ORDER BY name"))
+        schema_sql = "SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name"
+        before_schema = [tuple(row) for row in self.db.conn.execute(schema_sql)]
+        before_version = self.db.conn.execute("PRAGMA data_version").fetchone()[0]
+        surface_count = "SELECT COUNT(*) FROM memory_surface_log"
+        before_surfaced = self.db.conn.execute(surface_count).fetchone()[0]
         self.assertTrue(self.recall()["hits"])
         self.assertTrue(self.recall("今天量子计算")["hits"])
         self.assertEqual(self.db.get_memory(mid), before_row)
         self.assertEqual(self.db.conn.total_changes, before_changes)
-        # sqlite3.Row 没有 __eq__，直接比两个 list 等于比对象身份——必须转成 tuple 才能比内容。
-        self.assertEqual([tuple(r) for r in self.db.conn.execute("SELECT name FROM sqlite_master ORDER BY name")],
-                         [tuple(r) for r in before_tables])
+        self.assertEqual([tuple(row) for row in self.db.conn.execute(schema_sql)], before_schema)
+        self.assertEqual(self.db.conn.execute("PRAGMA data_version").fetchone()[0], before_version)
+        self.assertEqual(self.db.conn.execute(surface_count).fetchone()[0], before_surfaced)
         self.assertEqual((self.root / "2026-11.jsonl").read_bytes(), before_bytes)
 
+    def test_read_only_snapshot_recall_needs_no_schema_or_trace_writes(self):
+        from memory_core import source_provenance
+
+        ref = self.raw(assign=True)
+        mid = self.remember(refs=[ref])
+        self.db.conn.execute("DROP TABLE IF EXISTS memory_surface_log")
+        self.db.conn.commit()
+        raw_file = self.root / "2026-11.jsonl"
+        old_raw = raw_file.read_bytes()
+        trace_path = Path(self.tmp.name) / "source-provenance.jsonl"
+        schema_sql = "SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name"
+        with closing(sqlite3.connect(self.db.path.resolve().as_uri() + "?mode=ro", uri=True)) as ro:
+            ro.execute("PRAGMA query_only=ON")
+            before = ro.execute(schema_sql).fetchall()
+            memory = SimpleNamespace(store=SimpleNamespace(path=self.db.path, conn=ro), raw=self.memory.raw)
+            with (patch.object(source_provenance, "_trace_path", trace_path),
+                  patch.object(turn.sqlite3, "connect", side_effect=sqlite3.OperationalError("read-only fixture")) as reopen,
+                  patch.object(turn.time, "time", return_value=NOW)):
+                result = turn.TurnRecall(memory).recall({**SCOPE, "text": "量子计算", "diagnostics": True})
+            self.assertNotIn("error", result)
+            self.assertEqual([hit["id"] for hit in result["hits"]], [mid])
+            self.assertFalse(result["diagnostics"]["surface_entered"])
+            reopen.assert_not_called()
+            self.assertEqual(ro.execute(schema_sql).fetchall(), before)
+        self.assertFalse(trace_path.exists())
+        self.assertEqual(raw_file.read_bytes(), old_raw)
 
 if __name__ == "__main__":
     unittest.main()
