@@ -174,7 +174,11 @@ class EvidenceTests(Fixture):
         self.assertEqual(ref["quote"], "  原样")
         self.assertEqual(ref["raw_ts"], TODAY)
         self.assertEqual(ref["role"], "user")
-        self.assertEqual(set(ref), {"raw_id", "raw_ts", "quote", "role", "raw_file", "raw_offset", "raw_sha256"})
+        # 来源资格/立场字段是后加的（判「谁说的、站在什么立场」用），必须一起钉住：
+        # 少一个就说明溯源信息退化了，多一个就说明有人往里塞了没约定的字段。
+        self.assertEqual(set(ref), {"raw_id", "raw_ts", "quote", "role", "raw_file", "raw_offset",
+                                    "raw_sha256", "send_role", "stance", "stance_reason",
+                                    "support_scope", "classifier_version"})
         self.assertEqual(evidence.verify_ref(self.root, SCOPE, ref), ref)
 
     def test_verify_rejects_fabrication_wrong_session_time_and_provenance(self):
@@ -471,7 +475,9 @@ class RecallTests(Fixture):
         self.assertTrue(self.recall("今天量子计算")["hits"])
         self.assertEqual(self.db.get_memory(mid), before_row)
         self.assertEqual(self.db.conn.total_changes, before_changes)
-        self.assertEqual(list(self.db.conn.execute("SELECT name FROM sqlite_master ORDER BY name")), before_tables)
+        # sqlite3.Row 没有 __eq__，直接比两个 list 等于比对象身份——必须转成 tuple 才能比内容。
+        self.assertEqual([tuple(r) for r in self.db.conn.execute("SELECT name FROM sqlite_master ORDER BY name")],
+                         [tuple(r) for r in before_tables])
         self.assertEqual((self.root / "2026-11.jsonl").read_bytes(), before_bytes)
 
 

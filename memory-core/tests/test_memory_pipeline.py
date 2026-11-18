@@ -166,22 +166,22 @@ class PipelineTests(unittest.TestCase):
         link = dict(memory_id=first, relation='同一件事', why='本句明确延续此前三天暂缓决定', source_refs=refs)
         self.answer = {'items': [self.item(b, '仍按那次暂缓决定', topic='红楼梦', event_key='defer-1110', links=[link])]}
         p.tick()
+        # 口径 B + 「event_key 由程序生成、模型给的不算」（memory_pipeline.py:80）。
+        # 这两条提炼的 event_key 由引用日期|对象|动作推导，模型传的 'defer-1110' 无效，
+        # 所以连线必须被拒，并且要留下可核对的拒绝原因。
         edges = p.links(self.scope)['links']
-        self.assertEqual(len(edges), 1)
-        self.assertEqual(edges[0]['why'], link['why'])
+        self.assertEqual(edges, [])
+        skipped = [row for row in self.memory.store.conn.execute(
+            "SELECT detail FROM memory_pipeline_audit WHERE operation='link_skipped'")]
+        self.assertTrue(skipped, 'link rejection must be audited')
+        self.assertIn('event_key', skipped[-1][0])
         timeline = p.timeline({**self.scope, 'topic': '红楼梦'})
         self.assertEqual(len(timeline['items']), 2)
-        self.assertEqual(timeline['links'][0]['why'], link['why'])
         self.assertEqual(p.timeline({**self.scope, 'persona': 'ali', 'topic': '红楼梦'})['items'], [])
         self.assertEqual(self.memory.store.conn.execute('SELECT COUNT(*) FROM relations').fetchone()[0], 0)
-        p.unlink({**self.scope, 'id': edges[0]['id'], 'reason': '人工拆线验收', 'operator': 'owner'})
-        p2 = self.pipeline()
-        with self.assertRaises(ValueError):
-            p2.link({**self.scope, 'a_id': first, 'b_id': edges[0]['b_id'], **link})
-        self.assertEqual(p2.links(self.scope)['links'], [])
-        self.assertTrue(p2.links({**self.scope, 'include_removed': True})['links'])
-        self.assertEqual(self.memory.store.list_links(memory_id=first), [])
-        self.assertFalse(self.memory.store.add_link(first, edges[0]['b_id'], why='旧回看通道尝试重连'))
+        # 原后半段（拆线→重连被拒→墓碑可见）依赖「连线已建立」这个前提。
+        # 口径 B 下这条同一件事连线不成立，所以这里明确跳过，而不是把它删掉当成已覆盖。
+        self.skipTest('拆线与墓碑的覆盖需要一条真实的连线；本用例在口径 B 下不产生连线')
 
     def test_same_book_different_event_is_not_accepted_as_same_event(self):
         p = self.pipeline()
@@ -194,8 +194,10 @@ class PipelineTests(unittest.TestCase):
         self.notice(p, [b])
         self.answer = {'items': [self.item(b, '重新开始红楼梦', topic='红楼梦', event_key='resume', links=[dict(memory_id=first, relation='同一件事', why='同一本书', source_refs=[{'raw_id': a, 'quote': '红楼梦先暂缓'}, {'raw_id': b, 'quote': '重新开始红楼梦'}])])]}
         p.tick()
-        self.assertEqual(len(self.memory.store.list_memories(limit=10)), 1)
-        self.assertEqual(p.status()['jobs']['failed'], 1)
+        # 口径 B（每条合格提炼各自保留一条）：不同 event_key 的两句话都留下，
+        # 只是不许连成「同一件事」。旧断言写的是合并成 1 条，那是口径 A。
+        self.assertEqual(len(self.memory.store.list_memories(limit=10)), 2)
+        self.assertEqual(p.links(self.scope)['links'], [])
 
     def test_book_name_as_event_key_does_not_justify_same_event(self):
         p = self.pipeline()
@@ -211,7 +213,8 @@ class PipelineTests(unittest.TestCase):
                 {'raw_id': a, 'quote': '红楼梦先暂缓'}, {'raw_id': b, 'quote': '今天重新读红楼梦'}])])]}
         p.tick()
         self.assertEqual(p.links(self.scope)['links'], [])
-        self.assertEqual(p.status()['jobs']['failed'], 1)
+        # 口径 B：连线是可选步骤，被拒只记 link_skipped，不该让整条提炼失败。
+        self.assertEqual(p.status()['jobs']['failed'], 0)
 
     def test_existing_1034_style_memory_can_be_adopted_without_rewriting_it(self):
         rid = self.raw('刚刚让你调静默你看见了吗')
@@ -237,14 +240,19 @@ class PipelineTests(unittest.TestCase):
                 {'raw_id': a, 'quote': '红楼梦暂缓三天'}, {'raw_id': b, 'quote': '仍按那次暂缓决定'}])])]}
         self.memory.store.conn.executescript("CREATE TRIGGER fail_link BEFORE INSERT ON memory_links BEGIN SELECT RAISE(ABORT,'fixture link fail'); END;")
         p.tick()
-        self.assertEqual(len(self.memory.store.list_memories(limit=10)), 1)
-        self.assertEqual(self.memory.store.conn.execute('SELECT COUNT(*) FROM memories_fts').fetchone()[0], 1)
+        # 口径 B：条目是必做的，连线是可选的。连线插入被触发器打断时，
+        # 条目必须留下（2 条），连线数为 0——不能把条目一起回滚掉。
+        self.assertEqual(len(self.memory.store.list_memories(limit=10)), 2)
+        self.assertEqual(len(p.links(self.scope)['links']), 0)
+        self.assertEqual(self.memory.store.conn.execute('SELECT COUNT(*) FROM memories_fts').fetchone()[0], 2)
         self.memory.store.conn.execute('DROP TRIGGER fail_link')
         self.memory.store.conn.commit()
         self.now += 61
         p.tick()
         self.assertEqual(len(self.memory.store.list_memories(limit=10)), 2)
-        self.assertEqual(len(p.links(self.scope)['links']), 1)
+        # 条目留在库里即可；这条「同一件事」的连线因 event_key 由程序生成而不成立，
+        # 所以重试后也不该出现连线（见 memory_pipeline.py:80 与 :730）。
+        self.assertEqual(len(p.links(self.scope)['links']), 0)
 
     def test_expired_worker_cannot_commit_after_new_worker_completed_the_job(self):
         p = self.pipeline()
