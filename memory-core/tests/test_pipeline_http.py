@@ -1,4 +1,6 @@
+import hashlib
 import json
+import os
 import tempfile
 import unittest
 from io import BytesIO
@@ -15,12 +17,23 @@ class PipelineHttpTests(unittest.TestCase):
         self.memory = server.MemoryService(str(Path(self.tmp.name) / 'brain.db'), embed=False)
         self.addCleanup(self.memory.store.close)
         self.scope = dict(bot_id='111', persona='xiaoman', conv_key='private:222')
+        # 三绑定请求现在必须带范围凭据（scope_auth 的硬要求）：
+        # 造一个临时凭据文件，把 sha256(token) 与这条 scope 绑上，测试才能走到业务逻辑。
+        self.credential = 'test-scope-credential-0123456789abcdef'
+        creds = {'version': 1, 'credentials': [
+            {'sha256': hashlib.sha256(self.credential.encode()).hexdigest(), 'scopes': [self.scope]}]}
+        cred_path = Path(self.tmp.name) / 'recall-scope-server.json'
+        cred_path.write_text(json.dumps(creds), encoding='utf-8')
+        patcher = patch.dict(os.environ, {'MEMORY_SCOPE_CREDENTIALS_FILE': str(cred_path)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def request(self, path, body=None, method='POST'):
         raw = json.dumps(body or {}).encode()
         handler = server.Handler.__new__(server.Handler)
         handler.path, handler.rfile = path, BytesIO(raw)
-        handler.headers = {'Authorization': 'Bearer test', 'Content-Length': str(len(raw))}
+        handler.headers = {'Authorization': 'Bearer test', 'Content-Length': str(len(raw)),
+                           'X-Memory-Scope-Credential': self.credential}
         sent = []
         handler._send = lambda code, data: sent.append((code, data))
         with (patch.object(server, 'PORT', 8781), patch.object(server, 'TOKEN', 'test'),
