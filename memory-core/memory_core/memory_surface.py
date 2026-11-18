@@ -26,13 +26,6 @@ REPEAT_GUARD_HOURS = 2.0  # 两小时内刚浮起过的同一条不再浮起，�
 MAX_HITS = 3
 MAX_QUOTE_CHARS = 160
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS memory_surface_log(
- id INTEGER PRIMARY KEY,scope TEXT NOT NULL,memory_id INTEGER NOT NULL,
- at REAL NOT NULL,why_now TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS idx_surface_log ON memory_surface_log(scope,memory_id,at);
-"""
-
 _CACHE = {}
 _CACHE_LOCK = threading.Lock()
 
@@ -100,8 +93,6 @@ class SurfaceRecall:
         self.log_conn = sqlite3.connect(str(self.store.path), timeout=5.0, check_same_thread=False)
         self.log_conn.row_factory = sqlite3.Row
         self.log_conn.execute('PRAGMA busy_timeout=5000')
-        self.log_conn.executescript(SCHEMA)
-        self.log_conn.commit()
         self._log_lock = threading.RLock()
 
     def _last_at(self, key, ids):

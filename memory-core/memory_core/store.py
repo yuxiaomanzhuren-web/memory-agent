@@ -62,6 +62,15 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS memory_surface_log (
+    id INTEGER PRIMARY KEY,
+    scope TEXT NOT NULL,
+    memory_id INTEGER NOT NULL,
+    at REAL NOT NULL,
+    why_now TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_surface_log ON memory_surface_log(scope, memory_id, at);
+
 CREATE TABLE IF NOT EXISTS memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     kind TEXT NOT NULL DEFAULT 'episode',

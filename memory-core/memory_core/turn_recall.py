@@ -1,6 +1,6 @@
 """Verified turn recall and scoped surfacing; explicit lookups stay read-only."""
 from __future__ import annotations
-from .source_provenance import aggregate, readable, rank, constrain
+from .source_provenance import aggregate, readable, rank, constrain, suppress_trace
 
 import hashlib
 import math
@@ -175,9 +175,11 @@ class TurnRecall:
             out["error"] = error
         return out
 
-    def recall(self, data, *, select_hits=None, explicit_lookup=False) -> dict:
+    def recall(self, data, *, select_hits=None, explicit_lookup=True) -> dict:
+        """Look up evidence by default. Trusted wake callers can opt into surfacing."""
         trace = [] if isinstance(data, dict) and data.get('diagnostics') is True else None
-        out = self._request_recall(data, select_hits=select_hits, trace=trace, explicit_lookup=explicit_lookup)
+        with suppress_trace() if explicit_lookup else nullcontext():
+            out = self._request_recall(data, select_hits=select_hits, trace=trace, explicit_lookup=explicit_lookup)
         if trace is not None:
             hit_attempt = next((a for a in reversed(trace) if a['outcome'] == 'hit'), None)
             miss = next((name for name in ('final_merge', 'cooldown', 'invalid_candidates', 'query_gate',
@@ -243,8 +245,8 @@ class TurnRecall:
             days, tokens, speaker = _query(text)
             if not days and not tokens:
                 return self._empty("没有可匹配的内容")
-            # Only the explicit verification entry point sets this trusted
-            # keyword. A JSON field cannot disable normal passive cooldown.
+            # Only a trusted caller can opt into surfacing. Query intent still
+            # keeps literal, dated and explicit verification lookups out of cooldown.
             explicit = explicit_lookup or bool(days or speaker or _EXPLICIT.search(text))
             result = self._attempt(scope, days, tokens, speaker, explicit=explicit, select_hits=select_hits, trace=trace, include_history=history)
             if result['hits'] or result.get('error'):
@@ -283,10 +285,6 @@ class TurnRecall:
         with closing(sqlite3.connect(str(self.memory.store.path), timeout=.1)) as conn:
             with conn:
                 conn.execute('BEGIN IMMEDIATE')
-                conn.execute('''CREATE TABLE IF NOT EXISTS memory_surface_log(
-                    id INTEGER PRIMARY KEY,scope TEXT NOT NULL,memory_id INTEGER NOT NULL,
-                    at REAL NOT NULL,why_now TEXT NOT NULL)''')
-                conn.execute('CREATE INDEX IF NOT EXISTS idx_surface_log ON memory_surface_log(scope,memory_id,at)')
                 last_at = dict(conn.execute(
                     'SELECT memory_id,MAX(at) FROM memory_surface_log WHERE scope=? GROUP BY memory_id', (key,)))
                 eligible = []
