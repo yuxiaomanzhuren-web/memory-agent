@@ -1,141 +1,94 @@
-# 个人 AI 记忆与生活架构
+# Memory Agent
 
-> 给聊天机器人一套能长期跑的记忆、情绪、表达和生活层。
-> **不是新算法，是一套可落地的工程整合。**
+给对话 agent 用的长期记忆层。核心不是「记得多」，而是**知道自己在哪件事上没有根据**。
 
-![架构](docs/框架.png)
+一条原话进来，系统把它拆成条目、连上关系；一次提问出去，系统先判断「该不该查」，再给出四种状态之一，并把缺口写清楚。
 
-## 两种用法
+## 四态
 
-- **AstrBot 用户**：装 `plugins/` 下的插件，得到完整角色（记忆、情绪、生活层、面板）
-- **DSH 桌面版**：用 [`dsh/`](dsh/README.md)，3D 大脑 + 跨会话开机包
-- **qqbridge**：本次**不适配**，也没有测试环境
+| 状态 | 含义 |
+| --- | --- |
+| `found` | 范围内查到可作依据的原话，能逐字引用 |
+| `suspected` | 查到沾边材料，但缺东西（必须列出缺什么） |
+| `absent` | **查过**，范围内没有 |
+| `not_checked` | **没查**（不需要查，或不是回忆类问题） |
 
-接入文档：
+`absent` 和 `not_checked` 混用是最常见也最伤的错：一个说「没有」，一个说「我没找」。本系统把这两件事分开，并把「没查到什么」写进回答里。
 
-- [AstrBot](docs/astrbot.md)
-- [qqbridge（本次未适配）](memory-core/docs/qqbridge.md)
-- [DSH 窗口](dsh/README.md)
-- [memory-core + DSH](memory-core/docs/dsh.md)
-- [房间与玩具](docs/room.md)
+## 三道门
 
-## 它解决什么
+1. **门一 判定**：该不该查 → 查到什么 → 四态之一。
+2. **门二 来源资格**：同一条原话，本人说的、我转述的、别人说的，能说的话完全不同。
+3. **门三 引用清单**：要引的必须在这轮的注入清单里，不在就不许引。
 
-普通机器人聊完就忘。这里做了五件事：
+铁律：上层不许越级编造。门不能编条目，条目不能编原文。
 
-1. **记忆**：事件 / 事实 / 反思 / 技能 / 道理，五种分开存
-2. **检索**：向量 + 关键词 + 实体图谱 + 重要性 + 新鲜度，五路混合
-3. **遗忘**：衰减、归档、相似合并、冲突检测、体检
-4. **情绪**：PAD 三维 + 标签，有上限、有半衰期、不主导判断
-5. **生活**：你没找她时，她也会看书、刷视频、午睡，笔记回流记忆
-6. **时间**：问“早上/昨天”时按时间取原话和事件，不靠语义碰运气
-7. **提醒**：说明天三点叫你，到点主动发消息
-8. **备份**：每天自动备份记忆、情绪和生活层，保留 7 份
-
-## 不覆盖你的人格
-
-这是硬约束：
-
-- 人格文件**只读**，所有增强都是往 system_prompt 追加“注入块”
-- 每个注入块带 marker，重复注入先删旧块
-- 每个模块一个开关，默认关，关掉后她还是原来的她
-- 生活层只写自己的目录，不碰人格和聊天数据
-
-## 仓库结构
+## 架构
 
 ```
-plugins/                     四个 AstrBot 插件
-  astrbot_plugin_memory_brain        记忆库
-  astrbot_plugin_persona_state       情绪 / 好感 / 识海
-  astrbot_plugin_human_style_guard   发送前清洗
-  astrbot_plugin_self_style          自我档案 / 语气样例
-life/                        生活层（独立进程，可选）
-docs/                        框架图、设计说明
-eval/                        检索评估集（示例）
-tests/                       单元测试（不需要 AstrBot）
-tools/                       评估脚本
+① 原文层   每条消息原样存（带时间 / 说话人 / 来源标签）
+     ↓ 提炼
+② 条目层   一句话一条（谁说的、何时、哪个范围、什么资格）
+     ↓ 连线
+③ 连线层   同话题 / 改口 / 同源
+     ↓ 被查询
+④ 判定层   三道门决定「能不能说、能怎么说、能引哪条」
 ```
 
-## 安装
+## 接入
 
-### 1. 记忆与情绪（AstrBot 插件）
+两种入口，任选其一。
 
-把 `plugins/` 下四个目录放进 `AstrBot/data/plugins/`，重启。
-
-依赖：
+### MCP（stdio）
 
 ```bash
-pip install faster-whisper pilk   # 可选：语音转写
+pip install memory_agent-0.1.0-py3-none-any.whl
 ```
 
-embedding 自己配：默认读插件配置里的 `embedding_provider_id`，没配就退化为关键词检索。
-
-### 2. 生活层（可选）
-
-```bash
-cd life
-python life_loop.py --once      # 干跑
-python life_loop.py --send      # 常驻
-```
-
-不配任何环境变量也能跑，只是不刷手机、不发消息。
-
-## 建议的开启顺序
-
-1. 只开写入，不开注入，跑一天看摘要质量
-2. 私聊开注入，再开群聊
-3. 最后接情绪层
-4. 建 20–40 条自己的评估集，改一次跑一次
-
-## 能到什么程度（参考值，不是承诺）
-
-| 指标 | 参考 |
-|---|---|
-单轮上下文 | 1.5–1.8 万 token，其中记忆注入约 300 token（≈2%） |
-记忆规模 | 每天 60 条 → 一年 2.2 万条；十年 22 万条，约 2.4GB |
-实际占用 | 开着 180 天清理时，稳定在 100–200MB |
-检索延迟 | 当前规模 p50 约 120–140ms（含 embedding），纯检索约 40ms；10 万条以上建议加 ANN 索引 |
-成本 | DeepSeek 约 2–4 分/轮；一天 100 轮约 2–4 元；本地模型 0 |
-生活层 | 一天 20–40 轮动作，笔记 3 条以上 |
-
-结论：**存储不是瓶颈，保留策略才是。** 十年不用换硬件，想记更久就关掉 180 天清理。
-
-## 评估
-
-仓库带了一份示例评估集和脚本：
-
-```bash
-python tools/eval_memory.py --brain path/to/brain.db --queries eval/queries.example.jsonl
-```
-
-我们在 40 条中文真实问法上的结果（仅供参考，和模型、数据强相关）：
+启动前给四样环境变量：
 
 ```
-recall@1 70% · recall@3 90% · recall@5 95% · MRR 0.80
-端到端 p50 约 120–140ms（含 embedding），纯检索约 40ms
+MEMORY_AGENT_SOURCE_ID=my-agent
+MEMORY_AGENT_OWNER_ID=user-1
+MEMORY_AGENT_CONVERSATION_ID=conv-1
+MEMORY_AGENT_DATA_DIR=/path/to/data
 ```
 
-## 测试
+工具：`remember` / `recall` / `judge`。
 
-```bash
-python -m unittest discover -s tests
-```
+### 本机 HTTP
 
-只依赖标准库 + numpy，不需要 AstrBot。
+`POST /ingest`，`Authorization: Bearer <你的口令>`。适合没有 MCP 客户端的场景。
 
-## 兼容性
+## 写入必须带什么
 
-- AstrBot 4.29.x
-- Python 3.12
-- SQLite（内置）
-- 可选：Ollama / bge-m3、faster-whisper、ffmpeg、adb
+一条消息喂进来，**四样必填，缺一样就拒收**：
 
-## License
+| 字段 | 说明 |
+| --- | --- |
+| `speaker` | `user` / `assistant` / `other:<id>` |
+| `at` | 带时区的时间戳 |
+| `conversation` | 会话标识（source / owner / conversation 三项）|
+| `source_kind` | `direct` / `quote` / `forward` / `unknown` |
 
-AGPL-3.0-or-later。因为 AstrBot 本身是 AGPL-3.0，插件作为衍生作品沿用同一协议。
+缺 `speaker` 返回 `400 missing_speaker`。**不会**替你默认成 `user`——默认成 user 等于替用户认领一句话，这正是本系统要消掉的那个错。
 
-## 说明
+## 可审计
 
-- 仓库不含任何个人数据、聊天记录、人格文本
-- 示例里的“角色/用户”都是占位符
-- 情绪和记忆会让人更像人，但也请别用它替代真实关系
+四类自动记账：判定 / 归档 / 删除 / 提炼（放弃、降级）。两条硬规定：
+
+1. 写账本失败**不能**让查询失败。
+2. 删除没留审计就**不许**删。
+
+## 现状（诚实版）
+
+- 门一题集 30/30（其中 5 条是修订过期望值，不是能力提升）。
+- 固定回归集 10/11 —— 是回归集，不是盲测。
+- 独立投题 22/31（echo 9/9、当下 10/15、旧事 3/7）。
+- 冷启动基线：全 `not_checked` 11 / 全 `absent` 10 / 全 `found` 5。
+- **真实盲测样本 0，留出集 0**。所有分数都来自开发时看过的题。
+- 旧事召回仍是短板；改口样本 n=1，不足以报比率。
+
+## 许可
+
+见 [LICENSE](LICENSE)。
