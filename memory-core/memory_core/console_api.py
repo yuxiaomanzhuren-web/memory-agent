@@ -18,7 +18,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-BRIDGE_DIR = Path(os.environ.get("FISH_BRIDGE_DIR", r"C:\Users\34318\Apps\qq-bridge"))
+# 不写死任何本机路径：没配环境变量时，控制台照常启动，只是相关服务标成「未配置」，
+# 点「启动/重启」会给出明确原因，而不是去猜一个别人的目录。
+BRIDGE_DIR = Path(os.environ.get("FISH_BRIDGE_DIR", "")).expanduser() if os.environ.get("FISH_BRIDGE_DIR") else None
 # 桥接**真正读的那份** config 不在这里。
 #
 # node_modules/qq-bridge 是指向 .pnpm/qq-bridge@x.y.z_<hash>/node_modules/qq-bridge 的软链，
@@ -27,11 +29,13 @@ BRIDGE_DIR = Path(os.environ.get("FISH_BRIDGE_DIR", r"C:\Users\34318\Apps\qq-bri
 # 之前这里直接拼 BRIDGE_DIR/config.json，结果是：控制台改得欢，桥接一个字没看见。
 # （2026-11-02 语音这轮才发现：改完 tts.enabled 重启，接口仍报「语音合成已关闭」。）
 # 路径不能写死版本号（pnpm 升级就变），所以按软链解析。
-BRIDGE_PKG_DIR = Path(os.environ.get(
-    "FISH_BRIDGE_PKG_DIR",
-    str((BRIDGE_DIR / "node_modules" / "qq-bridge").resolve()),
-))
-BRIDGE_CONFIG = BRIDGE_PKG_DIR / "config.json"
+if os.environ.get("FISH_BRIDGE_PKG_DIR"):
+    BRIDGE_PKG_DIR = Path(os.environ["FISH_BRIDGE_PKG_DIR"]).expanduser()
+elif BRIDGE_DIR is not None:
+    BRIDGE_PKG_DIR = (BRIDGE_DIR / "node_modules" / "qq-bridge").resolve()
+else:
+    BRIDGE_PKG_DIR = None
+BRIDGE_CONFIG = (BRIDGE_PKG_DIR / "config.json") if BRIDGE_PKG_DIR else None
 
 
 # 各侧的「热更新能力」边界。声明式写在这里，schema 里每个组的「即时生效 / 需重启」
@@ -45,7 +49,8 @@ def _bridge_hot(path: str) -> bool:
 
 
 def _bridge_token() -> str:
-    for cand in (BRIDGE_PKG_DIR / "state" / "console-token", BRIDGE_DIR / "state" / "console-token"):
+    cands = [d / "state" / "console-token" for d in (BRIDGE_PKG_DIR, BRIDGE_DIR) if d is not None]
+    for cand in cands:
         try:
             tok = cand.read_text(encoding="utf-8").strip()
             if tok:
@@ -56,6 +61,8 @@ def _bridge_token() -> str:
 
 
 def _bridge_port() -> int:
+    if BRIDGE_CONFIG is None:
+        return 3100
     try:
         return int(_read_json(BRIDGE_CONFIG).get("consolePort") or 3100)
     except Exception:
@@ -98,6 +105,8 @@ def _validate_patch(patch: Any) -> dict:
 
 def _target_path(target: str) -> Path:
     _require_target(target, ("bridge",))
+    if BRIDGE_CONFIG is None:
+        raise RuntimeError("没有配置 FISH_BRIDGE_DIR / FISH_BRIDGE_PKG_DIR，控制台不知道该改哪份桥接配置。")
     return BRIDGE_CONFIG
 
 
@@ -180,12 +189,27 @@ def _settings_set(dotted: str, value: Any) -> Any:
 # ────────────────────────────────────────────────────────────── 服务定义
 # 每个服务的启停方式都不一样，所以在这里显式写清楚，不要试图通用化。
 #
+# 这里**不写死任何本机路径**：每个服务通过环境变量给出根目录，配了才有启停命令，
+# 没配就把服务标成「未配置」，点了会得到明确原因。这样公开仓里不会出现别人的用户名和盘符。
+#
 # 关键事实（2026-11-02 实测）：
 #   · bridge 有一个 .bat 自愈循环（进程退出后 bat 重新拉起）
 #     → 只杀监听进程没用，必须连父 cmd 一起杀，否则「关闭」后自己又起来了
-#   · 所有服务还被 C:\Users\34318\dsh-companion.ps1 每 4 秒轮询拉起
-#     → 必须先写停机名单 dsh-companion.off，否则杀了 4 秒后又活
+#   · 如果本机还有一个守护脚本在轮询拉起服务，必须先写停机名单，否则杀了又活
 # memory 的旧启动入口不能证明属于当前实例，只保留观测，不提供启停。
+
+
+def _svc_dir(name: str):
+    raw = os.environ.get(name, "").strip()
+    return Path(raw).expanduser() if raw else None
+
+
+def _start_cmd(directory, script: str):
+    """目录没配就返回 None，前端据此把「启动」按钮标成未配置。"""
+    if directory is None:
+        return None
+    return {"exe": "cmd.exe", "args": ["/c", str(directory / script)], "cwd": str(directory)}
+
 
 SERVICES = [
     {
@@ -200,15 +224,15 @@ SERVICES = [
         "role": "私聊 · 群聊 · 人格 · 工具",
         "off_key": "bridge", "controllable": True, "restart_mode": "stopstart",
         "guard_bat": "start-bridge.bat",
-        "start": {"exe": "cmd.exe", "args": ["/c", r"C:\Users\34318\Apps\qq-bridge\start-bridge.bat"], "cwd": r"C:\Users\34318\Apps\qq-bridge"},
+        "start": _start_cmd(BRIDGE_DIR, "start-bridge.bat"),
         "warn": "关掉后 QQ 里的鱼小满会完全消失（不再回消息）。不会掉登录，重启后接上。",
     },
     {
         "id": "tts", "name": "语音合成", "port": 8001,
         "role": "文字 → 她的声音（BreezeBlue 云端克隆）",
         "off_key": "tts", "controllable": True, "restart_mode": "stopstart",
-        "guard_bat": r"E:\kk-tts\run-api-hidden.bat",
-        "start": {"exe": "cmd.exe", "args": ["/c", r"E:\kk-tts\run-api-hidden.bat"], "cwd": r"E:\kk-tts"},
+        "guard_bat": "run-api-hidden.bat" if _svc_dir("FISH_TTS_DIR") else None,
+        "start": _start_cmd(_svc_dir("FISH_TTS_DIR"), "run-api-hidden.bat"),
         "warn": "关掉后她说不出话（qq_speak 会失败并退回打字）。纯云端，重启约 1 秒就 ready，不用等模型。",
     },
     {
@@ -218,7 +242,7 @@ SERVICES = [
         "role": "在线文生图 · /generate 和 OpenAI 兼容接口",
         "off_key": "img", "controllable": True, "restart_mode": "stopstart",
         "guard_bat": None,
-        "start": {"exe": "cmd.exe", "args": ["/c", r"E:\img-api\run-api-hidden.bat"], "cwd": r"E:\img-api"},
+        "start": _start_cmd(_svc_dir("FISH_IMGAPI_DIR"), "run-api-hidden.bat"),
         "warn": "关掉后她生成不了新图（已经生成的还在 outputs 里）。守护进程认的键是 img。",
     },
     {
@@ -229,8 +253,8 @@ SERVICES = [
         # 2026-11-05：原来 start=None 只能等守护进程拉；companion 一死就彻底点不动
         # （点「启动」干等 25 秒必失败，按钮还是灰的）。这里补上直接启动命令，
         # 与 companion 的 Start-SnowLuma 完全一致（node index.mjs，cwd=SnowLuma）。
-        "start": {"exe": r"E:\dsh\DSH NEXT\resources\runtime\x64\primary-runtime\dependencies\node\bin\node.exe",
-                  "args": ["index.mjs"], "cwd": r"C:\Users\34318\SnowLuma"},
+        "start": ({"exe": os.environ["FISH_NODE_EXE"], "args": ["index.mjs"], "cwd": str(_svc_dir("FISH_SNOWLUMA_DIR"))}
+                  if os.environ.get("FISH_NODE_EXE") and _svc_dir("FISH_SNOWLUMA_DIR") else None),
         "warn": "协议端一停，QQ 就掉线。建议只在排障时关，关完用「启动」恢复。",
     },
     {
@@ -912,7 +936,7 @@ def _action(name: str, body: dict) -> dict:
     if name == "intent.simulate":
         # 只算分不落账，用来在调阈值之前先看一眼
         idle = float(body.get("idle_seconds") or 3600)
-        conv = str(body.get("conv") or "private:3431816247")
+        conv = str(body.get("conv") or os.environ.get("FISH_DEFAULT_CONV") or "private:0")
         return {"result": srv.intent().decide(conv_key=conv, idle_seconds=idle, record=False)}
 
 
