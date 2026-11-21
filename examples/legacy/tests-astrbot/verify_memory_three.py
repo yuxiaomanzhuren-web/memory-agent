@@ -17,8 +17,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'memory-core'))
+# 这个脚本可以放在仓库根 tests/ 下，也可以放在 memory-core/tests/ 下，两种位置都能跑。
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent if (HERE.parent / 'memory_core').is_dir() else HERE.parents[1]
+sys.path.insert(0, str(ROOT / 'memory-core' if (ROOT / 'memory-core').is_dir() else ROOT))
 
 from memory_core.memory_evidence import scope_from, scope_key  # noqa: E402
 from memory_core.memory_pipeline import MemoryPipeline, run_pipeline  # noqa: E402
