@@ -4,6 +4,11 @@
 
 一条原话进来，系统把它拆成条目、连上关系；一次提问出去，系统先判断「该不该查」，再给出四种状态之一，并把缺口写清楚。
 
+> **当前状态（2026-11-21，一句话版）**
+> 冻结回放：门一 30/30、独立投题 23/31。真机连跑会漂，评测一律报冻结口径并附快照哈希。
+> 留出集已建 5 条，首次 1/5（3 条是标注错、2 条暴露真漏检）；**不做回填、不改标**。
+> 门三（引用硬拦截）已收进核心，QQ 桥接与独立语音走同一份 `check_reply`；MCP / HTTP / LangGraph 只给 `allowed_raw_ids`，投递由调用方负责。
+
 ## 四态
 
 | 状态 | 含义 |
@@ -21,7 +26,7 @@
 2. **门二 来源资格**：同一条原话，本人说的、我转述的、别人说的，能说的话完全不同。
 3. **门三 引用清单**逐条核对引文。许可来自本轮实际注入的原话与同一会话近期符合资格的原话。
 
-门三的发送前硬拦截范围是 QQ 桥接的文字回复与合成语音。Claude Code 原生 Hook 负责注入与记录。未来若由 Claude Agent SDK 宿主转发回复，须在宿主校验通过后才投递。
+门三由 core 统一核验。QQ 的对话文字和语音工具在发送或合成前调用它。LangGraph 和函数工具的宿主在发件前调用 `guard`。Claude Code 原生 Hook 负责注入与记录，Claude Agent SDK 由宿主在校验后投递。 [Claude Code Hook 参考](https://code.claude.com/docs/en/hooks#stop)
 
 铁律：上层不许越级编造。门不能编条目，条目不能编原文。
 
@@ -46,7 +51,7 @@
 ### MCP（stdio）
 
 ```bash
-pip install memory_agent-0.2.0-py3-none-any.whl
+pip install memory_agent-0.3.0-py3-none-any.whl
 ```
 
 启动前给四样环境变量：
@@ -116,7 +121,7 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 - 冷启动基线：全 `not_checked` 8 / 全 `absent` 11 / 全 `found` 7。
 - **留出集已建 5 条，首次跑 1/5**：其中 3 条是我的标注错（助手原话只能算线索），2 条暴露真漏检（「你记得…」句式没触发检索）。留出集不做回填、不改标。
 - 旧事召回仍是短板；改口样本 n=1，不足以报比率。
-- 门三（引用硬拦截）只在 QQ 桥接与 Claude Code hook 的发送前环节生效；MCP / HTTP / LangGraph 只做读取与写入，不拦。
+- 门三的硬拦截在掌握投递的宿主接入后生效。MCP 和 HTTP 的记忆响应返回 `allowed_raw_ids` 与 `citation_policy`。宿主用本轮实际注入的出处调用 `/citation/check`，端点故障时停发草稿。LangGraph 与函数工具样例包含重新校验后的改写。
 
 ## 许可
 

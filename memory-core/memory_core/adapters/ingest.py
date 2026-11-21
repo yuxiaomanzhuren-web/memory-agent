@@ -9,6 +9,7 @@ import threading
 import time
 from uuid import uuid4
 
+from ..citation import CITATION_POLICY
 from ..memory_delete import DeleteError, validated_memory_id
 from ..memory_evidence import RETIRED_RAW, owns_memory, raw_session, scope_from, scope_key, valid_agent_id
 from ..memory_gates import MemoryGates
@@ -175,7 +176,8 @@ class AgentMemory:
         return {**result, "conversation": dict(self.conversation), "missing": result.get("missing"),
                 "evidence_raw_id": evidence.get("raw_id"),
                 "items": [evidence] if qualified else [],
-                "allowed_raw_ids": [evidence["raw_id"]] if qualified else []}
+                "allowed_raw_ids": [evidence["raw_id"]] if qualified else [],
+                "citation_policy": dict(CITATION_POLICY)}
 
     def recall(self, data):
         require_fields(data, ("conversation", "query"), ("limit", "filters", "exclude_raw_id"))

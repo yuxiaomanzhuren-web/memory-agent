@@ -19,6 +19,7 @@ FILES+=tuple('memory-core/memory_core/'+name for name in (
     'adapters/__init__.py', 'adapters/qq/__init__.py', 'memory_evidence.py',
     'rawlog.py', 'source_provenance.py'))
 FILES+=('memory-core/memory_core/turn_recall.py','memory-core/memory_core/memory_surface.py')
+FILES+=('memory-core/memory_core/citation.py',)
 
 class StartupRefused(RuntimeError):
     def __init__(self, code, message, fix):
