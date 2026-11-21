@@ -54,12 +54,13 @@ _LOG_ENUMS = {
 
 
 # Fixed server-side targets, using console_api's path definitions, without importing it.
-_BRIDGE_DIR = Path(os.environ.get('FISH_BRIDGE_DIR', r'C:\Users\34318\Apps\qq-bridge'))
+_BRIDGE_DIR = Path(os.environ['FISH_BRIDGE_DIR']).expanduser() if os.environ.get('FISH_BRIDGE_DIR') else None
 # The 8781 managed launcher sends stdout to this file in its installation root.
 LOG_TARGETS = {
     'memory': Path(__file__).resolve().parents[2] / 'memory-core-8781b.log',
-    'bridge': _BRIDGE_DIR / 'bridge-run.log',
 }
+if _BRIDGE_DIR is not None:
+    LOG_TARGETS['bridge'] = _BRIDGE_DIR / 'bridge-run.log'
 
 
 class PanelError(ValueError):

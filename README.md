@@ -80,7 +80,7 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 ### 接入时最容易卡住的三处（所有 HTTP 接入都适用，不只 LangGraph）
 
 1. **口令短了不行**：`MEMORY_AGENT_HTTP_TOKEN` 必须 32–256 个可打印 ASCII 字符，短于 32 会直接报 `http_token_required`。
-2. **会话 ID 不能带冒号**：`MEMORY_AGENT_CONVERSATION_ID` 只接受字母数字一类标识（例如 `3431816247`），写 `private:3431816247` 会报 `invalid_conversation`。
+2. **会话 ID 不能带冒号**：`MEMORY_AGENT_CONVERSATION_ID` 只接受字母数字一类标识（例如 `100012345`），写 `private:100012345` 会报 `invalid_conversation`。
 3. **两端 scope 必须一致**：客户端与服务端的 `MEMORY_AGENT_SOURCE_ID` / `OWNER_ID` / `CONVERSATION_ID` 三个变量必须完全相同，不一致会报 `scope_forbidden`——这是范围隔离在起作用，不是 bug。
 
 另：`/ingest` 属于独立接入包自带的 HTTP 入口（`memory-agent-ingest`），不是主服务 8781 的路由；直接打 8781 的 `/ingest` 会得到 `not found`。
