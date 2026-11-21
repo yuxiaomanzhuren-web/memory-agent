@@ -7,9 +7,23 @@ import os
 import sys
 
 import anyio
-from mcp import types
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+
+try:
+    from mcp import types
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+except ImportError as exc:  # 没装可选依赖，或者装成了不兼容的版本
+    raise ImportError(
+        "MCP 适配器需要 `mcp` 1.x：pip install \"memory-agent[mcp]\""
+    ) from exc
+
+if not hasattr(Server, "list_tools"):
+    # mcp 2.x 去掉了 Server.list_tools()/call_tool() 这套注册方式。
+    # 与其在运行到一半时抛 AttributeError，不如在这里把原因说清楚。
+    raise ImportError(
+        "检测到的 `mcp` 版本没有 Server.list_tools()（多半是 2.x）。"
+        "本仓目前只适配 1.x：pip install \"mcp>=1,<2\""
+    )
 
 from ..ingest import AgentRequestError
 from ..http.client import HTTPMemoryClient

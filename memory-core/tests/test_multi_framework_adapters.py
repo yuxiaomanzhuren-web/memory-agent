@@ -17,10 +17,24 @@ from typing import TypedDict
 import unittest
 from unittest.mock import patch
 
-from langgraph.graph import START, END, StateGraph
-from langgraph.runtime import Runtime
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+try:
+    from langgraph.graph import START, END, StateGraph
+    from langgraph.runtime import Runtime
+    HAS_LANGGRAPH = True
+except ImportError:  # 可选依赖没装：跳过而不是收集阶段就炸
+    HAS_LANGGRAPH = False
+
+try:
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    HAS_MCP = HAS_LANGGRAPH and True
+except ImportError:
+    HAS_MCP = False
+
+# 这不只是「测试环境缺依赖」：适配器本身就是靠这些包工作的，
+# 缺了就该 skip，并且 README/pyproject 里写清要装哪一组可选依赖。
+OPTIONAL_STACK = unittest.skipUnless(
+    HAS_LANGGRAPH and HAS_MCP, "需要 memory-agent[langgraph] 与 memory-agent[mcp]（mcp 1.x）")
 
 PACKAGE = os.environ.get("MEMORY_TEST_PACKAGE", "memory_core")
 ingest = importlib.import_module(PACKAGE + ".adapters.ingest")
@@ -69,6 +83,7 @@ def compile_graph(store):
     return graph.compile(store=store)
 
 
+@OPTIONAL_STACK
 class AdaptersTests(unittest.TestCase):
     def setUp(self):
         parent = Path(os.environ.get("MEMORY_TEST_TEMP", Path.cwd())).resolve()
