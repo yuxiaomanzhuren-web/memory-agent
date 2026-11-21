@@ -5,7 +5,7 @@
 ## 检查是否还生效
 
 ```bash
-cd /c/Users/34318/Apps/qq-bridge
+cd "$QQ_BRIDGE_DIR"   # 换成你自己的 qq-bridge 安装目录
 grep -n "LOCAL-PATCH" node_modules/.pnpm/qq-bridge@*/node_modules/qq-bridge/src/bridge.js
 grep -n "saveWillV2\|askIntentV2" node_modules/.pnpm/qq-bridge@*/node_modules/qq-bridge/src/memory-brain.js
 ```
