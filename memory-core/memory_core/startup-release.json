@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "release": "memory-20261118-readonly-recall",
+  "release": "memory-20261121-gate1-holdout-recall",
   "files": {
     "memory-8781.ps1": "c7ddf745414564c08f42788bd293758bc46dd1080d0403be3db8e205866d950b",
-    "memory-core/pyproject.toml": "1d7cb16f1a5f35e7b1a5ef90a55b2193ffc76e3aa8a24593dcff052c59665800",
+    "memory-core/pyproject.toml": "eb9cc2c953ea9fb433b52a5e030160025e04e2d4bda2d767cf69b05b2e72009c",
     "memory-core/requirements.txt": "f879521c88c58e9a7712880ac8c32f05567154ecb931f4f343a0b7383047144b",
-    "memory-core/memory_core/server.py": "592680a694ca741f77056f81841afaec61324e5ff5b4b101aab39c354bdd7286",
-    "memory-core/memory_core/memory_gates.py": "15c3871cd052273bbf45c0531a3b9a752c3ff250c01fd489d28e669a9a6db59a",
+    "memory-core/memory_core/server.py": "9b67292b6491218b3942c5f2a1604926bccb27958f2ffa136fd979aa687f5077",
+    "memory-core/memory_core/memory_gates.py": "a8fdafc2acaf7b090b09f8c42580d3e12f2112d58e7adafd3580ff183bf03220",
     "memory-core/memory_core/gate1_recall_units.py": "b96e9c1a5ac52b75f4ed08fbf2d47bc6238132d94f35e21ddf595becd3062498",
     "memory-core/memory_core/startup_check.py": "2a5df8c9c4cf7b268d0764fdfeb7479f860e00161f3de45b8d1ce68f7a24e1d2",
-    "memory-core/memory_core/operation_ledger.py": "a779143bc1b6fa29ac1de740da500d8ad38095b5a6389764fbe1da8ac0732380",
-    "memory-core/memory_core/store.py": "7f624bbe5f55f902f14f02e226ed664adc42c5c953def47a64749da7dc5726dc",
+    "memory-core/memory_core/operation_ledger.py": "e4ac57e51e09fbd1d02e38b0e09363cd9f13dbe3e278b8fe93f21ccae7723e54",
+    "memory-core/memory_core/store.py": "984fc48f79d08dc45a929c52e05c8c5a870a9ee91599eb4e8cf31e9f2709835a",
     "memory-core/memory_core/memory_delete.py": "cd4ff6200fa9dd001494b7b553274dd75e04e103df6576fdbdc758b4e9d7d197",
     "memory-core/memory_core/memory_retirement.py": "7f229e13a74364a0121e04bbdbdbfbc4eeaaa24139c03009dc5f12604d37ac08",
-    "memory-core/memory_core/memory_pipeline.py": "3ba47c452b67711f435310535308e9bf4c96711eb10c6aa065c0d0c5b51cdf08",
+    "memory-core/memory_core/memory_pipeline.py": "22cb84189355a61a52f5e0d707b3e8ae7b830e9656a9c01bd09607f2af415b0e",
     "memory-core/memory_core/daybook.py": "706a8766376b6987a8910873303217f74bb70d19a85777400bfc6cc891ed101e",
     "memory-core/memory_core/scope_auth.py": "c3f3401e41e704c52436a7e14e3c6c9d945d17d6a096f437142ee5d8a8a26547",
     "memory-core/memory_core/delete_audit.py": "e1b724bb703c5537aa2bbec4ef8429bf04ecaf5e17171f33c64da158bd874c04",
@@ -26,10 +26,10 @@
     "memory-core/memory_core/intent.py": "2fea336eaa9f77df891e5edd98c38b7e552b95684d416498b7fa4d17eeb9420c",
     "memory-core/memory_core/adapters/__init__.py": "4344bd2b7e68fffb6223f2ecd6510d16be1a8d14e656a0556b31968cc9b5cef5",
     "memory-core/memory_core/adapters/qq/__init__.py": "deacdece8bf0c8fd31d0f3959dcdc600263da9ea5773b04f5bdf53d8139f70b3",
-    "memory-core/memory_core/memory_evidence.py": "abfd4d3140b63b3d98be89b0c1ea0d94385ab6a501b0413f261d39cdfbf60924",
+    "memory-core/memory_core/memory_evidence.py": "dd32c1d9803d8fde9927bcd946ec0ed52e6ae6eeaca971b480a0a9f6b0087b52",
     "memory-core/memory_core/rawlog.py": "82005a6de9f7c05fb40759aabf7d264dc55272d73b3f3ac76de26e61fd845ad1",
-    "memory-core/memory_core/source_provenance.py": "24e1ad68faccbea29d093d349130939e09f8feb503e9d9569b0a2605db27fbd4",
-    "memory-core/memory_core/turn_recall.py": "e48bdb873ac0aa4484c7a4b0bd883bdba0baaaaa45c80d1c038cb8b95e59485c",
-    "memory-core/memory_core/memory_surface.py": "1de833f338de8e35612d9e42113440972da52ad090011aebd7322f89dde562bb"
+    "memory-core/memory_core/source_provenance.py": "444afe96a993f6ed07e8844c1ae7b91a735297d9888e2f50db848235043c8c2e",
+    "memory-core/memory_core/turn_recall.py": "b9c6e57e6d03f8aa9486a301a2c05a40ab66f7103e739ca717cadb03b1b28330",
+    "memory-core/memory_core/memory_surface.py": "0121bc99709ebfd910219ef226923b0a84e66ceab7a013169bad107f30b514ab"
   }
 }

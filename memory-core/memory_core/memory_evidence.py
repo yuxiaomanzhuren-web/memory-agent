@@ -170,6 +170,9 @@ def _metadata(row) -> dict:
     return meta if isinstance(meta, dict) else {}
 
 
+RETIRED_RAW = 3  # Durable retirement in memory_pipeline_raw.processed.
+
+
 def owns_memory(memory, row, scope) -> bool:
     """Explicit metadata or adoption only; legacy source strings confer no rights.
 

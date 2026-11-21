@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .memory_evidence import scope_from, scope_key, raw_session, verify_ref, owns_memory
+from .memory_evidence import RETIRED_RAW, scope_from, scope_key, raw_session, verify_ref, owns_memory
 
 SHANGHAI = timezone(timedelta(hours=8), 'Asia/Shanghai')
 # Discourse corrections may change both object and action, so event_key is not
@@ -230,6 +230,8 @@ class MemoryPipeline:
                 raise ValueError('raw source not found in this bot/conversation')
             if row['scope'] and row['scope'] != key:
                 raise ValueError('raw source already belongs to another persona')
+            if row['processed'] == RETIRED_RAW:
+                continue
             self.conn.execute("UPDATE memory_pipeline_raw SET scope=?,noticed_at=CASE WHEN noticed_at=0 THEN ? ELSE noticed_at END,"
                               "processed=CASE WHEN role!='user' THEN 2 ELSE processed END WHERE raw_id=?",
                               (key, self.clock(), rid))
@@ -240,6 +242,26 @@ class MemoryPipeline:
         with self.tx():
             self._bind(scope, data.get('raw_ids'))
         return {'accepted': len(set(data['raw_ids'])), 'raw_ids': sorted(set(data['raw_ids'])), 'scope': scope}
+
+    def retire_raw(self, scope, raw_id):
+        """Hide an original with an audit in the same transaction as the change."""
+        from .operation_ledger import event
+        with self.tx():
+            row = self.conn.execute(
+                'SELECT processed FROM memory_pipeline_raw WHERE scope=? AND raw_id=?',
+                (scope_key(scope), raw_id)).fetchone()
+            if row is None:
+                return False
+            if row['processed'] == RETIRED_RAW:
+                return True
+            if row['processed'] == 1:
+                raise ValueError('raw_extraction_in_progress')
+            detail = event('delete', {'type': 'raw', 'id': raw_id}, 'agent_raw_soft_delete',
+                           'unknown', False, scope, self.clock(), operation='soft', raw_retained=True)
+            self._audit(scope, 'raw_soft_delete', detail)
+            self.conn.execute('UPDATE memory_pipeline_raw SET processed=? WHERE raw_id=?',
+                              (RETIRED_RAW, raw_id))
+        return True
 
     def backfill(self, data):
         scope = scope_from(data)
@@ -268,6 +290,8 @@ class MemoryPipeline:
             if not isinstance(ref.get('quote'), str) or not 1 <= len(ref['quote']) <= 300:
                 raise ValueError('citation quote must contain 1..300 characters')
             row = self.conn.execute('SELECT * FROM memory_pipeline_raw WHERE raw_id=?', (ref.get('raw_id'),)).fetchone()
+            if row is not None and row['processed'] == RETIRED_RAW:
+                raise ValueError('raw source is retired')
             tags = decode_tags(dict(row).get('source_tags')) if row else None
             checked = verify_ref(self.memory.raw.root, scope, ref, from_source=from_source, source_tags=tags)
             if row is None or row['scope'] != scope_key(scope):
@@ -289,6 +313,8 @@ class MemoryPipeline:
         checked = []
         for ref in refs:
             indexed = self.conn.execute('SELECT * FROM memory_pipeline_raw WHERE raw_id=? AND scope=?', (ref.get('raw_id'), scope_key(scope))).fetchone()
+            if indexed is not None and indexed['processed'] == RETIRED_RAW:
+                raise ValueError('raw source is retired')
             tags = decode_tags(dict(indexed).get('source_tags')) if indexed else None
             checked.append(verify_ref(self.memory.raw.root, scope, ref, source_tags=tags))
         self.scan()
@@ -343,7 +369,7 @@ class MemoryPipeline:
 
     def _raw_text(self, rid):
         row = self.conn.execute('SELECT * FROM memory_pipeline_raw WHERE raw_id=?', (rid,)).fetchone()
-        if not row:
+        if not row or row['processed'] == RETIRED_RAW:
             raise ValueError('missing indexed source')
         path = Path(self.memory.raw.root) / row['file']
         with path.open('rb') as stream:

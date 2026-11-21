@@ -13,19 +13,29 @@ from pathlib import Path
 import sqlite3
 import time
 
-from .memory_evidence import _metadata, _verify_record, owns_memory, raw_session, scope_from, scope_key
+from .memory_evidence import RETIRED_RAW, _metadata, _verify_record, owns_memory, raw_session, scope_from, scope_key
 from .turn_recall import SHANGHAI, _assigned_records, _query, _tokens, _on_day, _excerpt, _QUESTIONS, _STOP_CHARS
 from .gate1_recall_units import analyze as recall_units, matches as unit_match, annotate as annotate_recall, lexical_overlap, lexical_match, negative_relation, polarity_fragment
 
 COSTS = ('错过', '被拒', '改口', '认错')
 GATE1_RECENT_RECORDS = 10
 GATE1_PAST_REFERENCE = re.compile(r'昨天|前天|上周|今早|今晚|刚才|刚刚|上次|之前|那次|那天|这几天')
-GATE1_TIME_QUESTION = re.compile(r'哪一回|哪天|哪年|哪次|何时|几点')
+GATE1_WHEN = r'(?:什么|啥|哪)时候'
+GATE1_WHEN_SAID = GATE1_WHEN + r'\s*(?=说过|提过|讲过|聊过|问过)'
+GATE1_TIME_QUESTION = re.compile(r'哪一回|哪天|哪年|哪次|何时|几点|' + GATE1_WHEN_SAID)
+GATE1_WHEN_LEAD = re.compile(r'^(我\s*)' + GATE1_WHEN_SAID)
+GATE1_MEANING_SUFFIX = r'是什么(?:意思|含义)'
 GATE1_MEMORY_QUESTION = re.compile(r'还记得|记得吗|我是不是说过|我说过|记不记得')
+GATE1_REMEMBER_LEAD = re.compile(r'^你(?:还)?记得(?!\s*(?:把|给|别|不要|要|住))')
+GATE1_REMEMBER_TAIL = re.compile(r'(?<![我他她它们])(?:(?:你)?(?:还)?记得[吗嘛]|你还记得)$')
+GATE1_USER_SAID = re.compile(r'^我\s*(?:跟你|对你)\s*(?=(?:说|讲|提|聊|问)过)')
 GATE1_QUESTION = re.compile(r'[?？]|什么|哪个|哪些|怎么|是不是|是否|有没有|哪天|哪年|哪次|哪一回|几次|多少|多久|多远|谁|哪儿|哪里|何时|几点|([\u3400-\u9fff]{1,2})(?:不|没)\1')
 GATE1_ABSOLUTE = re.compile(r'(?<![\dA-Za-z/-])(?:\d{4}年\d{1,2}月\d{1,2}[日号]|\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}月\d{1,2}[日号]|\d{1,2}[-/]\d{1,2}|\d{1,2}号)(?![\dA-Za-z/-])')
 GATE1_MONTH = re.compile(r'(?:(\d{4})年)?(\d{1,2})月|上个月|上月|这个月|本月')
 GATE1_TIME = re.compile(GATE1_ABSOLUTE.pattern + r'|今天|昨天|前天|明天|今早|今晚|上周[一二三四五六日天]?|这周[一二三四五六日天]?|上次|那次|那天|刚才|刚刚|这几天|\btoday\b|\byesterday\b', re.I)
+GATE1_ASSISTANT_SAID = re.compile(
+    rf'^(?P<before>{GATE1_TIME.pattern}|之前)?\s*你\s*(?P<after>{GATE1_TIME.pattern}|之前)?\s*'
+    r'(?:(?:跟我|对我)\s*(?:说|讲)(?:过)?|(?:说|讲|提)过)', re.I)
 GATE1_SHELL = re.compile(r'我是不是说过|记不记得|还记得|记得吗|我说过|你说过|是不是|有没有|是否|说过|提过|讲过|聊过|说了|记得|我|你|吗|呢|吧|过')
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS memory_gate_costs(
@@ -228,13 +238,13 @@ def _gate1_absolute(text, today):
 def _gate1_unrepresented_constraints(content, tokens):
     # Verification only: keep isolated Han content and literal negation pairs.
     # ponytail: literal fragments, not POS/semantic analysis; recall stays unchanged.
-    # Do not manufacture content from grammatical remnants: 这个 -> 个, 现在 -> 现.
+    # Do not manufacture content from grammatical remnants: 这个 -> 个, 为了 -> 为.
     content = re.sub(r'这个|那个|现在', ' ', content)
     boundary = '[' + re.escape(''.join(sorted(_STOP_CHARS - set('不别没')))) + ']+'
     required = set()
     for run in re.findall(r'[\u3400-\u9fff]+', content):
         for part in re.split(boundary, run):
-            if len(part) == 1:
+            if len(part) == 1 and part != '为':
                 required.add(part)
             required.update(m.group() for m in re.finditer(r'[不别没][\u3400-\u9fff]', part))
     return required - tokens
@@ -273,6 +283,7 @@ def _gate1_query(text, now, *, date_info=None, content_constraints=None):
         days = absolute
     if date_info is not None:
         date_info.update(info)
+    content = re.sub(GATE1_WHEN, ' ', content)
     for phrase in sorted(_QUESTIONS, key=len, reverse=True):
         content = content.replace(phrase, ' ')
     content = GATE1_SHELL.sub(' ', content)
@@ -291,6 +302,7 @@ def _gate1_literal(text, now):
     content = _gate1_absolute(text, datetime.fromtimestamp(now, SHANGHAI).date())[0]
     content = GATE1_PAST_REFERENCE.sub(' ', GATE1_TIME.sub(' ', content)).strip()
     content = re.sub(r'^(?:你)?(?:还记得|记不记得)\s*', '', content)
+    content = GATE1_WHEN_LEAD.sub(r'\1', content)
     lead = re.match(r'^我\s*(?:(?:是不是|有没有|是否)\s*)?(?:说过|提过|讲过|聊过|问过)', content)
     content = re.sub(r'^我\s*(?:(?:是不是|有没有|是否)\s*)?(?:说过|提过|讲过|聊过|问过)\s*', '', content)
     content = content.strip(' \t\r\n。！？?!「」『』“”"')
@@ -306,7 +318,8 @@ def _gate1_meta_query(text, now):
     content = _gate1_absolute(outer, datetime.fromtimestamp(now, SHANGHAI).date())[0]
     content = GATE1_PAST_REFERENCE.sub(' ', GATE1_TIME.sub(' ', content)).strip()
     content = re.sub(r'^(?:你)?(?:还记得|记不记得)\s*', '', content)
-    lead = re.match(r'^我\s*(?:(?:是不是|有没有|是否)\s*)?(?:说过|提过|讲过|问过)\s*', content)
+    content = GATE1_WHEN_LEAD.sub(r'\1', content)
+    lead = re.match(r'^我\s*(?:(是不是|有没有|是否)\s*)?(说过|提过|讲过|问过)\s*', content)
     if not lead:
         return None
     if quotes:
@@ -319,16 +332,32 @@ def _gate1_meta_query(text, now):
     target = content[lead.end():].strip(' \t\r\n。！？?!')
     if target.endswith(('吗', '呢', '么')) and not target.endswith(('毛呢', '那么', '这么')):
         target = target[:-1].rstrip()
+    # An explicit yes/no about having mentioned an action can leave its object open.
+    open_object = re.fullmatch(r'要\s*(.+?)\s*(?:哪个盘|什么盘|哪件事|哪个|什么)', target)
+    if lead[1] and lead[2] != '问过' and open_object and len(open_object[1]) >= 2:
+        return dict(target=open_object[1], explicit=False, open_object=True, date_text=text,
+                    reason='只查是否提过这项动作；疑问对象留待确认')
     if len(target) < 2 or re.match(r'^(?:我们|你们|我|你)?(?:要|应该|必须|按时)', target):
         return None
     return dict(target=target, explicit=False, date_text=text,
                 reason='无引号；须完整字串命中本人原话才启用元问题路径')
 
 
+def _gate1_memory_prompt(text):
+    """Return what is being recalled, or None for a different sentence shape."""
+    body = text.strip().rstrip(' \t\r\n。！？?!')
+    lead, tail = GATE1_REMEMBER_LEAD.match(body), GATE1_REMEMBER_TAIL.search(body)
+    if lead is None and tail is None:
+        return None
+    start, end = (lead.end() if lead else 0), (tail.start() if tail else len(body))
+    return body[start:end].strip(' \t\r\n，,：:。！？?!').rstrip('嘛').rstrip()
+
+
 def _gate1_recall_request(text, now):
     lead = _gate1_literal(text, now)[1]
-    return bool(re.match(r'^(?:你)?(?:还记得|记不记得)', text) or lead and (
-        GATE1_TIME.search(text) or GATE1_PAST_REFERENCE.search(text) or GATE1_QUESTION.search(text)
+    return bool(_gate1_memory_prompt(text) is not None or re.match(r'^(?:你)?(?:还记得|记不记得)', text) or lead and (
+        GATE1_TIME.search(text) or GATE1_PAST_REFERENCE.search(text) or GATE1_TIME_QUESTION.search(text)
+        or GATE1_QUESTION.search(text)
         or text.rstrip(' 。！？?!\r\n').endswith(('吗', '呢', '么'))))
 
 
@@ -371,9 +400,47 @@ def _gate1_covers(tokens, quote, objects):
     return True
 
 
+def _gate1_assistant_clue(scope, records, literal, plan, dates, now, only_raw_id):
+    candidates = []
+    for rec in records.values():
+        if (rec['r'] != 'assistant' or rec['ts'] >= now or
+                (only_raw_id is not None and rec['id'] != only_raw_id)):
+            continue
+        source = _source_stance(rec)
+        if source['stance'] != '助手自述' or rank(source) == 0:
+            continue
+        for sentence in re.findall(r'[^。！？?!；;\n]+[。！？?!；;]*', rec['t']):
+            quote = _excerpt(sentence.strip(), plan['units'], 800)
+            if not quote:
+                continue
+            if plan['quoted_literals'] and not unit_match(plan, quote):
+                continue
+            match = SequenceMatcher(None, literal.casefold(), quote.casefold(), autojunk=False).find_longest_match()
+            overlap = lexical_overlap(plan, quote) - _STOP_CHARS
+            exact = bool(literal) and match.size == len(literal)
+            fragment = literal[match.a:match.a + match.size]
+            # Common prefixes such as "later I won't" are insufficient by themselves.
+            partial = lexical_match(plan, quote) and (
+                match.size >= 3 and sum(c.isalnum() and c not in _STOP_CHARS for c in fragment) >= 2
+                or match.size >= 2 and len(overlap) >= 2)
+            if not (exact or plan['quoted_literals'] or partial):
+                continue
+            score = (not dates or _on_day(rec['ts'], dates), exact, match.size, len(overlap), -len(quote), rec['ts'])
+            candidates.append((score, rec['id'], quote))
+    if not candidates:
+        return None
+    _, raw_id, quote = max(candidates)
+    ref = _verify_record(scope, {'raw_id': raw_id, 'quote': quote}, records, from_source=True)
+    evidence = {field: ref[field] for field in ('quote', 'raw_id', 'raw_ts', 'role', 'send_role', 'stance', 'stance_reason')}
+    return {**evidence, 'support_scope': '仅可作线索', 'evidence_kind': 'utterance_clue',
+            'match_method': 'assistant_utterance', 'time': _date(ref['raw_ts']),
+            'memory_id': None, 'message_id': records[raw_id].get('message_id')}
+
+
 class MemoryGates:
-    def __init__(self, memory, clock=time.time):
+    def __init__(self, memory, clock=time.time, *, strict_archive=False):
         self.memory, self.clock = memory, clock
+        self.strict_archive = strict_archive
 
     def _load(self, scope, exclude_message_id=None, exclude_raw_id=None):
         with self.memory.lock, self.memory.store._lock:
@@ -384,10 +451,12 @@ class MemoryGates:
                     'SELECT * FROM memory_pipeline_raw WHERE scope=? AND session=? ORDER BY raw_id',
                     (scope_key(scope), raw_session(scope)))]
             except sqlite3.OperationalError as exc:
-                if 'no such table' not in str(exc):
+                if self.strict_archive or 'no such table' not in str(exc):
                     raise
                 index = []
         records = _assigned_records(self.memory.raw.root, scope, index)
+        if self.strict_archive and len(records) != sum(row['processed'] != RETIRED_RAW for row in index):
+            raise OSError('assigned_archive_unavailable')
         exclude_message_ids = _exclude_values(exclude_message_id)
         exclude_raw_ids = _exclude_values(exclude_raw_id)
         if exclude_message_ids is not None or exclude_raw_ids is not None:
@@ -414,10 +483,10 @@ class MemoryGates:
     def one(self, data):
         context = {}
         result = self._one(data, context=context)
-        literal=_gate1_literal(data['text'],self.clock())[0]
-        plan=recall_units(data['text'],literal,_tokens)
-        result=annotate_recall(result,plan)
-        if result.get('evidence') and self.memory is not None:
+        result = annotate_recall(result, context['plan'])
+        if (result.get('evidence') or {}).get('role') == 'assistant':
+            result['version_lookup'] = dict(attempted=False, reason='assistant_utterance')
+        elif result.get('evidence') and self.memory is not None:
             from .gate1_link_history import attach_history
             try:
                 result=attach_history(self, data, result, context)
@@ -442,26 +511,45 @@ class MemoryGates:
 
     def _one(self, data, *, context=None, loaded=None, only_raw_id=None):
         scope, text = scope_from(data), _text(data, 'text')
-        memory_question = GATE1_MEMORY_QUESTION.search(text)
+        remembered = _gate1_memory_prompt(text)
+        assistant_said = GATE1_ASSISTANT_SAID.match(remembered) if remembered is not None else None
+        if assistant_said:
+            payload = remembered[assistant_said.end():].lstrip(' \t，,：:')
+            analysis_text = ' '.join(part for part in (*assistant_said.groups(), payload) if part)
+        elif remembered is not None:
+            analysis_text = GATE1_USER_SAID.sub('我', remembered, count=1)
+        else:
+            analysis_text = text
+        memory_question = remembered is not None or GATE1_MEMORY_QUESTION.search(text)
         now = self.clock()
-        literal, recall_lead = _gate1_literal(text, now)
-        meta = _gate1_meta_query(text, now)
-        plan = recall_units(text,literal,_tokens)
-        timed_recall = recall_lead and bool(GATE1_TIME.search(text) or GATE1_PAST_REFERENCE.search(text))
+        literal, recall_lead = _gate1_literal(analysis_text, now)
+        past_reference = GATE1_PAST_REFERENCE.search(text)
+        time_question = GATE1_TIME_QUESTION.search(text) or (past_reference and re.search(GATE1_WHEN, text))
+        explanation = re.fullmatch(r'说(?:过)?\s*(.+?)\s*' + GATE1_MEANING_SUFFIX, literal) if past_reference else None
+        if explanation:
+            literal = explanation[1]
+        meta = None if assistant_said else _gate1_meta_query(analysis_text, now)
+        plan = recall_units(analysis_text,literal,_tokens)
+        if context is not None:
+            context['plan'] = plan
+        timed_recall = recall_lead and bool(GATE1_TIME.search(text) or past_reference)
         utterance_intent = recall_lead
         if not utterance_intent and re.match(r'^你说(?!过).*(?:什么意思|是什么意思|什么含义)', text):
             return dict(state='not_checked', searched=None, rendered='', trigger_reason=None)
         body = text.rstrip(' \t\r\n。！!？?')
         particle = body.endswith(('吗', '呢', '么', '吧')) and not body.endswith(('酒吧', '网吧', '贴吧', '毛呢', '那么', '这么'))
-        past_choice = bool((memory_question or GATE1_PAST_REFERENCE.search(text))
+        past_choice = bool((memory_question or past_reference)
                            and re.search(r'是[^，。！？?!]+还是[^，。！？?!]+', text))
-        question = timed_recall or GATE1_QUESTION.search(text) or particle or re.match(r'^(?:你)?(?:还记得|记不记得)', text)
+        question = (remembered is not None or timed_recall or time_question or GATE1_QUESTION.search(text)
+                    or particle or re.match(r'^(?:你)?(?:还记得|记不记得)', text))
         choice_clue_only = past_choice and not question
         question = question or past_choice
         if not question:
             return dict(state='not_checked', searched=None, rendered='', trigger_reason=None)
         date_info = {}
-        date_text = meta['date_text'] if meta else text
+        date_text = meta['date_text'] if meta else analysis_text
+        if explanation:
+            date_text = re.sub(GATE1_MEANING_SUFFIX + r'[\s。！？?!吗呢么]*$', ' ', date_text)
         content_constraints = set()
         days, tokens, vague, invalid = _gate1_query(date_text, now, date_info=date_info,
                                                   content_constraints=content_constraints)
@@ -476,7 +564,7 @@ class MemoryGates:
         if context is not None:
             context.update(rows=rows, records=records, now=now)
         requests = {rid for rid, rec in records.items() if rec['r'] == 'user' and _gate1_recall_request(rec['t'], now)}
-        reason = 'memory_question' if memory_question or meta else 'time_word' if GATE1_PAST_REFERENCE.search(text) or GATE1_TIME.search(text) or GATE1_TIME_QUESTION.search(text) else None
+        reason = 'memory_question' if memory_question or meta else 'time_word' if past_reference or GATE1_TIME.search(text) or time_question else None
         anchor = None if reason else _gate1_object_anchor(text, plan, rows, records)
         if not reason and not anchor and plan['negations'] and not plan['quoted_literals']:
             for rec in records.values():
@@ -508,9 +596,36 @@ class MemoryGates:
         searched = dict(scope=scope, dates=dates, window=window, records_checked=len(records), memories_checked=len(rows))
         recent_ids = {r['id'] for r in sorted(records.values(), key=lambda r: (r['ts'], r['id']), reverse=True)[:GATE1_RECENT_RECORDS]}
         searched.update(role='user', recent_records=GATE1_RECENT_RECORDS, query_text=literal, query_tokens=sorted(tokens), **date_info)
+        if assistant_said:
+            searched.update(role='assistant', memories_checked=0, type_reason='明确查询助手原话',
+                            records_checked=sum(rec['r'] == 'assistant' and rec['ts'] < now for rec in records.values()))
+            ref = _gate1_assistant_clue(scope, records, literal, plan, days, now, only_raw_id)
+            if ref is None:
+                missing = '没有找到相关的助手原话。'
+                parts = [f'已查范围：{scope_label}；{window}；说话人：助手',
+                         '实际查询串：' + literal, missing]
+                return dict(state='absent', searched=searched, missing=missing, parts=parts, source_clues=[],
+                            trigger_reason=reason, trigger_anchor=anchor, rendered='[absent] ' + '；'.join(parts))
+            missing = '只查到助手原话这条线索，缺少可作用户主张依据的原话'
+            if not plan['quoted_literals'] and literal.casefold() not in ref['quote'].casefold():
+                missing += '；这段原话没有逐字覆盖「' + literal + '」'
+            if days and not _on_day(ref['raw_ts'], days):
+                missing += '；原话的日期与提问不符'
+            if date_info.get('issue'):
+                missing += '；' + date_info['issue']
+            parts = [f"沾边的是助手在 {ref['time']} 的原话：{json.dumps(ref['quote'], ensure_ascii=False)}",
+                     '缺什么：' + missing, '所以我只能说到这儿']
+            return dict(state='suspected', evidence=ref, missing=missing, parts=parts, searched=searched,
+                        source_clues=[], trigger_reason=reason, trigger_anchor=anchor,
+                        rendered='[suspected] ' + '；'.join(parts) + f'。范围：{scope_label}；{window}。')
         if meta:
             meta_clues = {}
             hits = _gate1_substrings(scope, records, meta['target'], True, requests, meta_clues)
+            if meta.get('open_object'):
+                action = re.escape(meta['target'])
+                directive = re.compile(rf'(?:(?:(?:我|你)?(?:要|准备|打算)|请)\s*{action}(?:这个|那个|一下)?吧?'
+                                       rf'|{action}\s*(?:这个|那个|一下)?吧)[。！!]?')
+                hits = [ref for ref in hits if directive.fullmatch(ref['quote'].strip())]
             own = [ref for ref in hits if ref['stance'] == '他说' and rank(ref) == 2]
             if meta['explicit'] or own:
                 searched.update(query_type='meta', type_reason=meta['reason'], query_text=meta['target'])
@@ -524,17 +639,21 @@ class MemoryGates:
                     date_ok = not days or _on_day(ref['raw_ts'], days)
                     own_source = ref['stance'] == '他说' and rank(ref) == 2
                     vague_bad = bool(vague and not days and len({r['raw_id'] for r in own}) > 1)
-                    complete = own_source and date_ok and not invalid and not date_info.get('issue') and not vague_bad
+                    current_only = meta.get('open_object') and vague and ref['raw_id'] in recent_ids
+                    complete = own_source and date_ok and not invalid and not date_info.get('issue') and not vague_bad and not current_only
                     evidence = {**ref, 'time':_date(ref['raw_ts']), 'meta_only':True, 'support_target':'utterance_only',
                         'match_method':'meta_quote', 'evidence_kind':'utterance_existence',
                         'matched_text':meta['target'], 'message_id':records[ref['raw_id']].get('message_id')}
                     state = 'found' if complete else 'suspected'
-                    why = date_info.get('issue') or ('不是有效日期' if invalid else '时间对不上' if not date_ok else '你说的那次我不能确定')
+                    why = date_info.get('issue') or ('不是有效日期' if invalid else '时间对不上' if not date_ok else
+                           '只在最近对话找到这条原话' if current_only else '你说的那次我不能确定')
                     notice = ('这句确实在 ' + evidence['time'] + ' 说过；这句话本身是否成立，另说') if complete else (
                         ('只查到你复述过这句话，不能算本人陈述' if ref['stance'] in ('他转述','转述','他引用','引用') else '来源不明，不能确认是本人陈述') + '；这句话本身是否成立，另说' if not own_source else
                         '原话存在，但' + why + '；这句话本身是否成立，另说')
                     if not own_source and (invalid or not date_ok or date_info.get('issue')):
                         notice += '；' + why
+                    if complete and meta.get('open_object'):
+                        notice += '；这里只确认说过这项动作，具体对象待确认'
                     if date_info.get('date_interpretation'):
                         notice += '；' + date_info['date_interpretation']
                     parts = ['原话：' + json.dumps(ref['quote'], ensure_ascii=False), notice,
@@ -594,7 +713,8 @@ class MemoryGates:
             date_ok = not days or _on_day(ref['raw_ts'], days)
             # Preserve the existing strict found contract, including its old
             # threshold. Word-only recovery is a clue, never new fact permission.
-            full = legacy_eligible and _gate1_covers(tokens, ref['quote'], objects)
+            full = (legacy_eligible and _gate1_covers(tokens, ref['quote'], objects)
+                    and (not explanation or explanation[1] in ref['quote']))
             recent = ref['raw_id'] in recent_ids
             if not legacy_eligible:
                 ref = {**ref, 'match_method':'lexical_units'}
@@ -657,6 +777,7 @@ class MemoryGates:
                     hint['surface'] in ref['quote'] for hint in plan['negations'])
             complete = complete and not missing_constraints
             evidence = dict(memory_id=mid, raw_id=ref['raw_id'], quote=ref['quote'], raw_ts=ref['raw_ts'], time=_date(ref['raw_ts']), role='user')
+            evidence['message_id'] = records[ref['raw_id']].get('message_id')
             evidence.update({k:ref[k] for k in ('send_role','stance','stance_reason','support_scope')})
             if 'ingest_source_kind' in ref:
                 evidence['ingest_source_kind'] = ref['ingest_source_kind']

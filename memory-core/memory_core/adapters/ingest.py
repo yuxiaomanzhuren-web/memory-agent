@@ -1,20 +1,22 @@
 """The message contract and scoped memory operations shared by the adapters."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 import re
 import sqlite3
 import threading
 import time
 from uuid import uuid4
 
-from ..memory_evidence import raw_session, scope_from, valid_agent_id
+from ..memory_delete import DeleteError, validated_memory_id
+from ..memory_evidence import RETIRED_RAW, owns_memory, raw_session, scope_from, scope_key, valid_agent_id
 from ..memory_gates import MemoryGates
 from ..memory_pipeline import MemoryPipeline
 from ..rawlog import RawLog, valid_speaker
 from ..source_provenance import SOURCE_KINDS, classify_source
 from ..store import Store
-from ..turn_recall import TurnRecall
+from ..turn_recall import TurnRecall, _assigned_records
 
 
 SCOPE_FIELDS = ("source_id", "owner_id", "conversation_id")
@@ -30,6 +32,10 @@ class AgentRequestError(ValueError):
 
     def payload(self):
         return {"error": self.code, "status": self.status, **self.detail}
+
+
+def unavailable():
+    return AgentRequestError("memory_unavailable", 503, message="记忆不可用")
 
 
 def conversation_scope(conversation):
@@ -140,34 +146,57 @@ class AgentMemory:
             except (ValueError, sqlite3.Error, OSError, RuntimeError):
                 raise AgentRequestError("raw_saved_binding_pending", 503,
                                         raw_id=raw_id, message_id=message_id) from None
+        if processed == RETIRED_RAW:
+            raise AgentRequestError("record_retired", 410)
         extraction = "raw_only" if speaker != "user" else (
             "processed" if processed == 2 else "queued" if self.model_configured else "awaiting_provider")
         return {"raw_id": raw_id, "message_id": message_id, "speaker": speaker, "source_kind": kind,
                 "conversation": dict(self.conversation), "extraction": extraction, **tags}
 
     def judge(self, data):
-        require_fields(data, ("conversation", "query"))
+        require_fields(data, ("conversation", "query"), ("exclude_raw_id",))
         self._check_scope(data["conversation"])
         query = require_text(data, "query", 1000)
+        scope_query = {**self.scope, "text": query}
+        if "exclude_raw_id" in data:
+            scope_query["exclude_raw_id"] = require_text(data, "exclude_raw_id", 128)
         with self.lock:
-            result = MemoryGates(self).one({**self.scope, "text": query})
+            if not Path(self.raw.root).is_dir():
+                raise unavailable()
+            result = MemoryGates(self, strict_archive=True).one(scope_query)
+        if result.get("ledger_write", {}).get("status") != "recorded":
+            raise unavailable()
         if result.get("searched"):
             result["searched"] = {**result["searched"], "scope": dict(self.conversation)}
         evidence = result.get("evidence") or {}
+        qualified = result["state"] == "found"
+        if qualified and (not evidence.get("raw_id") or not evidence.get("quote")):
+            raise unavailable()
         return {**result, "conversation": dict(self.conversation), "missing": result.get("missing"),
-                "evidence_raw_id": evidence.get("raw_id")}
+                "evidence_raw_id": evidence.get("raw_id"),
+                "items": [evidence] if qualified else [],
+                "allowed_raw_ids": [evidence["raw_id"]] if qualified else []}
 
     def recall(self, data):
-        require_fields(data, ("conversation", "query"), ("limit",))
+        require_fields(data, ("conversation", "query"), ("limit", "filters", "exclude_raw_id"))
         limit = data.get("limit", 3)
         if type(limit) is not int or not 1 <= limit <= 3:
             raise AgentRequestError("invalid_limit", field="limit")
-        request = {key: data[key] for key in ("conversation", "query")}
-        result = self.judge(request)
+        filters = data.get("filters", {})
+        if not isinstance(filters, dict) or filters.keys() - set(SCOPE_FIELDS):
+            raise AgentRequestError("unsupported_filter")
+        if any(value != self.conversation[field] for field, value in filters.items()):
+            raise AgentRequestError("scope_forbidden", 403)
+        request = {key: data[key] for key in ("conversation", "query", "exclude_raw_id") if key in data}
         core_query = {**self.scope, "text": request["query"]}
+        if "exclude_raw_id" in request:
+            core_query["exclude_raw_id"] = request["exclude_raw_id"]
         with self.lock:
+            result = self.judge(request)
             memories = TurnRecall(self).recall(core_query, explicit_lookup=True)
-            speech = MemoryGates(self).two(core_query, include_all_speakers=True)
+            if memories.get("error"):
+                raise unavailable()
+            speech = MemoryGates(self, strict_archive=True).two(core_query, include_all_speakers=True)
         utterances = [
             {**hit, "speaker": hit.get("send_role") or "未记录", "meta_only": True,
              "source_kind": hit.get("ingest_source_kind", "unknown")}
@@ -180,3 +209,84 @@ class AgentMemory:
             "utterances": utterances,
             "speaker_status": "已记录" if speaker_known else "未记录",
         }
+
+    def _originals(self):
+        with self.lock, self.store._lock:
+            index = [dict(row) for row in self.store.conn.execute(
+                "SELECT * FROM memory_pipeline_raw WHERE scope=? AND session=? AND processed!=?",
+                (scope_key(self.scope), raw_session(self.scope), RETIRED_RAW),
+            )]
+            originals = _assigned_records(self.raw.root, self.scope, index)
+        if len(originals) != len(index) or not Path(self.raw.root).is_dir():
+            raise unavailable()
+        return originals
+
+    def _original_item(self, record):
+        return {"id": record["id"], "text": record["t"], "speaker": record["r"],
+                "at": record.get("observed_at") or datetime.fromtimestamp(record["ts"], timezone.utc).isoformat(),
+                "conversation": dict(self.conversation), "message_id": record.get("message_id"),
+                "source_kind": record.get("ingest_source_kind", "unknown"),
+                **{field: record[field] for field in ("stance", "support_scope", "stance_reason")}}
+
+    def _read_item(self, identity, by_message_id):
+        if not by_message_id and identity.startswith("memory:"):
+            memory_id = validated_memory_id(identity[7:])
+            row = self.store.get_memory(memory_id)
+            if not row or row["status"] != "active" or not owns_memory(self, row, self.scope):
+                return None
+            return {"id": identity, "text": row["text"], "kind": row["kind"], "meta": row["meta"],
+                    "at": datetime.fromtimestamp(row["created_at"], timezone.utc).isoformat(),
+                    "conversation": dict(self.conversation)}
+        originals = self._originals()
+        record = originals.get(identity)
+        if by_message_id:
+            record = next((r for r in originals.values() if r.get("message_id") == identity), record)
+        return self._original_item(record) if record else None
+
+    def _read_args(self, data):
+        require_fields(data, ("conversation", "id"), ("by_message_id",))
+        self._check_scope(data["conversation"])
+        by_message_id = data.get("by_message_id", False)
+        if type(by_message_id) is not bool:
+            raise AgentRequestError("invalid_by_message_id")
+        return require_text(data, "id", 128), by_message_id
+
+    def get(self, data):
+        identity, by_key = self._read_args(data)
+        with self.lock:
+            try:
+                return {"item": self._read_item(identity, by_key)}
+            except DeleteError as exc:
+                raise AgentRequestError(exc.error, exc.code) from None
+
+    def delete(self, data):
+        identity, by_key = self._read_args(data)
+        with self.lock:
+            try:
+                if not by_key and identity.startswith("memory:"):
+                    item = self._read_item(identity, by_key)
+                    deleted = bool(item and self.store.delete_memory(
+                        validated_memory_id(identity[7:]), "soft", actor="memory-agent", origin="agent_adapter"))
+                else:
+                    if by_key:
+                        item = self._read_item(identity, by_key)
+                        if not item:
+                            return {"deleted": False}
+                        identity = item["id"]
+                    deleted = self.pipeline.retire_raw(self.scope, identity)
+            except DeleteError as exc:
+                raise AgentRequestError(exc.error, exc.code) from None
+            except ValueError as exc:
+                if str(exc) != "raw_extraction_in_progress":
+                    raise
+                raise AgentRequestError("raw_extraction_in_progress", 409) from None
+        return {"deleted": deleted}
+
+    def recent(self, data):
+        require_fields(data, ("conversation",), ("limit",))
+        self._check_scope(data["conversation"])
+        limit = data.get("limit", 5)
+        if type(limit) is not int or not 1 <= limit <= 10:
+            raise AgentRequestError("invalid_limit")
+        rows = sorted(self._originals().values(), key=lambda item: (item["ts"], item["id"]))
+        return {"items": [self._original_item(item) for item in rows[-limit:]]}

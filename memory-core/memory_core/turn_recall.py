@@ -130,10 +130,13 @@ def _rows(conn, sql, args=()):
 def _assigned_records(root, scope, index):
     """Seek only explicitly assigned rows; never scan unassigned raw history."""
     root = Path(root).resolve()
+    from .memory_evidence import RETIRED_RAW
     from .source_provenance import indexed_tags
     records = {}
     for row in index:
         try:
+            if "processed" in row.keys() and row["processed"] == RETIRED_RAW:
+                continue
             if row["scope"] != scope_key(scope) or row["session"] != raw_session(scope):
                 continue
             path = (root / row["file"]).resolve()

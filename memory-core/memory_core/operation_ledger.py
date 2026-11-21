@@ -393,6 +393,13 @@ def recent(memory,data):
                         out['retirements'].append(item)
             out['retirements']=sorted(out['retirements'],key=lambda e:e['at'],reverse=True)[:limit]
         if'memory_pipeline_audit'in names:
+            for row in conn.execute(
+                    "SELECT id,detail FROM memory_pipeline_audit WHERE scope=? AND operation='raw_soft_delete' "
+                    "ORDER BY id DESC LIMIT ?", (key, limit)):
+                value = json.loads(row['detail'])
+                if value.get('scope') == scope:
+                    out['retirements'].append(dict(value, audit_id=row['id']))
+            out['retirements'] = sorted(out['retirements'], key=lambda e:e['at'], reverse=True)[:limit]
             for row in conn.execute("SELECT id,detail FROM memory_pipeline_audit WHERE scope=? AND json_valid(detail) "
                     "AND json_extract(detail,'$.kind') IN ('extract','drop','merge','downgrade') ORDER BY id DESC LIMIT ?",(key,limit)):
                 value=json.loads(row['detail'])
