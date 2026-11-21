@@ -15,3 +15,11 @@
 
 如果你想看「这套记忆核在真实场景里怎么被用」，先读 `docs/` 与根目录 README；
 想复现本机那套应用，得自己准备对应的服务，这里只提供参考实现。
+
+## `tests-astrbot/`
+
+`test_engine.py` 依赖 AstrBot 插件包（`astrbot_plugin_memory_brain`），属于本机那套应用，不属于记忆核，
+所以没跟 `memory-core/tests` 混在一起。跑它需要先装插件。
+
+`verify_memory_three.py` 是早期在本机跑的「记忆三条」验收脚本，需要本机的会话范围配置（`bot_id` 等），
+换台机器会直接 `invalid_bot_id`。留在这里当历史，不作为库的测试入口。

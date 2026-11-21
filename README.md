@@ -111,6 +111,16 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 1. 写账本失败**不能**让查询失败。
 2. 删除没留审计就**不许**删。
 
+## 怎么跑测试
+
+所有测试都在 `memory-core/tests/`：
+
+```bash
+cd memory-core && python -m unittest discover -s tests -p "test_*.py"
+```
+
+161 个用例通过，8 个按平台跳过。`examples/legacy/` 里那份 `tests-astrbot/` 属于本机应用，不在此列。
+
 ## 现状（诚实版）
 
 （2026-11-21 核过一遍代码与实跑，数字按当天为准）
