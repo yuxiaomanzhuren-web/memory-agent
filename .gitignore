@@ -14,3 +14,8 @@ _agent_test/
 
 memory-core/tests/tmp*/
 source-provenance.jsonl
+
+# 构建产物
+build/
+dist/
+*.egg-info/
