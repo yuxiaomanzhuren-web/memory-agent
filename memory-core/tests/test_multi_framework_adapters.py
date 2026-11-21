@@ -24,10 +24,21 @@ try:
 except ImportError:  # 可选依赖没装：跳过而不是收集阶段就炸
     HAS_LANGGRAPH = False
 
+def _mcp_major_ok() -> bool:
+    """mcp 2.x 改了 Server 的注册 API，本仓只适配 1.x：
+    装了 2.x 等于「这套适配器不可用」，测试应当 skip 而不是红。"""
+    try:
+        import importlib.metadata as md
+        major = md.version("mcp").split(".")[0]
+        return major == "1"
+    except Exception:
+        return False
+
+
 try:
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
-    HAS_MCP = HAS_LANGGRAPH and True
+    HAS_MCP = HAS_LANGGRAPH and _mcp_major_ok()
 except ImportError:
     HAS_MCP = False
 
