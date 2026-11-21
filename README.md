@@ -19,7 +19,9 @@
 
 1. **门一 判定**：该不该查 → 查到什么 → 四态之一。
 2. **门二 来源资格**：同一条原话，本人说的、我转述的、别人说的，能说的话完全不同。
-3. **门三 引用清单**：要引的必须在这轮的注入清单里，不在就不许引。
+3. **门三 引用清单**逐条核对引文。许可来自本轮实际注入的原话与同一会话近期符合资格的原话。
+
+门三的发送前硬拦截范围是 QQ 桥接的文字回复与合成语音。Claude Code 原生 Hook 负责注入与记录。未来若由 Claude Agent SDK 宿主转发回复，须在宿主校验通过后才投递。
 
 铁律：上层不许越级编造。门不能编条目，条目不能编原文。
 
@@ -32,17 +34,19 @@
      ↓ 连线
 ③ 连线层   同话题 / 改口 / 同源
      ↓ 被查询
-④ 判定层   三道门决定「能不能说、能怎么说、能引哪条」
+④ 判定层   四态与来源资格决定「能不能说、能怎么说」
+     ↓ QQ 桥接发出回复前
+   引用清单门核对「能引哪条」
 ```
 
 ## 接入
 
-两种入口，任选其一。
+各入口共用记忆核。独立接入包随附 LangGraph、Claude Code 和通用工具的可运行样例。
 
 ### MCP（stdio）
 
 ```bash
-pip install memory_agent-0.1.0-py3-none-any.whl
+pip install memory_agent-0.2.0-py3-none-any.whl
 ```
 
 启动前给四样环境变量：
@@ -58,7 +62,23 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 
 ### 本机 HTTP
 
-`POST /ingest`，`Authorization: Bearer <你的口令>`。适合没有 MCP 客户端的场景。
+设置 `MEMORY_AGENT_HTTP_PORT`、`MEMORY_AGENT_HTTP_TOKEN` 后运行 `memory-agent-ingest`，请求头用 `Authorization: Bearer <你的口令>`。写入原话用 `POST /ingest`，通用后端用 `POST /add`、`/search`、`/get`、`/delete`。MCP 如需连接同一档案，设置 `MEMORY_AGENT_MCP_USE_HTTP=1`。
+
+### LangGraph、Claude Code 与函数工具
+
+- LangGraph 从 `memory_agent.adapters.langgraph` 导入 `MemoryStore`，调用 `graph.compile(store=MemoryStore())`。用 `search(...).as_dict()` 读取四态、证据和 `allowed_raw_ids`。
+- Claude Code 用 `memory-hook` 接入 `SessionStart`、`UserPromptSubmit`、`Stop`，用于注入与记录。HTTP 后端按 Claude 会话 UUID 绑定。
+- OpenAI 风格工具使用 `memory_agent.adapters.tools.openai_tools()`，工具执行通过 `call_tool` 调用核心。
+
+查询失败显式返回 `memory_unavailable`。派生条目沿用核心提炼与审计。
+
+### 接入时最容易卡住的三处（实测）
+
+1. **口令短了不行**：`MEMORY_AGENT_HTTP_TOKEN` 必须 32–256 个可打印 ASCII 字符，短于 32 会直接报 `http_token_required`。
+2. **会话 ID 不能带冒号**：`MEMORY_AGENT_CONVERSATION_ID` 只接受字母数字一类标识（例如 `3431816247`），写 `private:3431816247` 会报 `invalid_conversation`。
+3. **两端 scope 必须一致**：客户端与服务端的 `MEMORY_AGENT_SOURCE_ID` / `OWNER_ID` / `CONVERSATION_ID` 三个变量必须完全相同，不一致会报 `scope_forbidden`——这是范围隔离在起作用，不是 bug。
+
+另：`/ingest` 属于独立接入包自带的 HTTP 入口（`memory-agent-ingest`），不是主服务 8781 的路由；直接打 8781 的 `/ingest` 会得到 `not found`。
 
 ## 写入必须带什么
 

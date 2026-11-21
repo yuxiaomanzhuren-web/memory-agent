@@ -37,10 +37,13 @@ class LexicalRecallTests(unittest.TestCase):
         self.assertFalse(set(result['searched']['query_tokens']) & {'上吃', '的什'})
 
     def test_imperative_is_a_clue_without_inventing_disk(self):
+        # 2026-11-21 口径变更（主人裁定）：「我是不是说过要做某动作」时，
+        # 开放的疑问对象（哪个盘）是待填项，原话能确认「说过清理」就算 found，
+        # 但必须标成 meta_only（只说存在这句话），不能替「具体哪个盘」背书。
         result = ask('我上次是不是说过要清理哪个盘', make_gates('清理这个吧'))
-        self.assertEqual(result['state'], 'suspected')
+        self.assertEqual(result['state'], 'found')
         self.assertEqual(result['evidence']['quote'], '清理这个吧')
-        self.assertIn('盘', result['missing'])
+        self.assertTrue(result['evidence'].get('meta_only'))
 
     def test_code_and_punctuation_retrieve_same_complete_words(self):
         result = ask('上次那个 `_validate()` 提前校验连线，后来怎么处理的？',

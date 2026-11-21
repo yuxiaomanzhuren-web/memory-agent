@@ -7,8 +7,12 @@ import json
 import os
 import sys
 
-from ..ingest import AgentRequestError
+from ..ingest import AgentRequestError, unavailable
 from ..runtime import open_memory
+from ..tools import OPERATIONS, call_memory
+
+ROUTES = {"/" + operation: operation for operation in OPERATIONS}
+ROUTES["/ingest"] = "remember"
 
 
 class IngestHandler(BaseHTTPRequestHandler):
@@ -16,7 +20,8 @@ class IngestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            if self.path != "/ingest":
+            operation = ROUTES.get(self.path)
+            if operation is None:
                 raise AgentRequestError("not_found", 404)
             received = self.headers.get("Authorization", "").encode("utf-8")
             if not hmac.compare_digest(received, self.server.authorization):
@@ -31,23 +36,26 @@ class IngestHandler(BaseHTTPRequestHandler):
                 payload = json.loads(self.rfile.read(size).decode("utf-8"))
             except (ValueError, UnicodeError):
                 raise AgentRequestError("invalid_json") from None
-            result = self.server.memory.remember(payload)
+            result = call_memory(self.server.memory, operation, payload)
         except AgentRequestError as exc:
             self.send_json(exc.status, exc.payload())
         except Exception as exc:
             print(f"[memory-agent] ingress failure: {type(exc).__name__}", file=sys.stderr, flush=True)
-            self.send_json(503, AgentRequestError("memory_unavailable", 503).payload())
+            self.send_json(503, unavailable().payload())
         else:
             self.send_json(200, result)
 
     def send_json(self, status, value):
         body = json.dumps(value, ensure_ascii=False).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+        except ConnectionError:
+            self.close_connection = True
 
     def log_message(self, *_):
         # HTTP provider tokens and arbitrary paths do not belong in access logs.

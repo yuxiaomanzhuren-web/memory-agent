@@ -2,8 +2,8 @@
   "roots": [
     {
       "scope": {
-        "bot_id": "<BOT_ID>",
-        "conv_key": "private:<OWNER_ID>",
+        "bot_id": "1000000001",
+        "conv_key": "private:1000000001",
         "persona": "示例人格"
       },
       "root": "/path/to/review/root"

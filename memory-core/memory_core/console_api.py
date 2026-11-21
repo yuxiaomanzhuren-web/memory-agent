@@ -18,7 +18,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-BRIDGE_DIR = Path(os.environ.get("FISH_BRIDGE_DIR", r"<LOCAL_PATH>"))
+BRIDGE_DIR = Path(os.environ.get("FISH_BRIDGE_DIR", r"C:\Users\34318\Apps\qq-bridge"))
 # 桥接**真正读的那份** config 不在这里。
 #
 # node_modules/qq-bridge 是指向 .pnpm/qq-bridge@x.y.z_<hash>/node_modules/qq-bridge 的软链，
@@ -183,7 +183,7 @@ def _settings_set(dotted: str, value: Any) -> Any:
 # 关键事实（2026-11-02 实测）：
 #   · bridge 有一个 .bat 自愈循环（进程退出后 bat 重新拉起）
 #     → 只杀监听进程没用，必须连父 cmd 一起杀，否则「关闭」后自己又起来了
-#   · 所有服务还被 <LOCAL_PATH> 每 4 秒轮询拉起
+#   · 所有服务还被 C:\Users\34318\dsh-companion.ps1 每 4 秒轮询拉起
 #     → 必须先写停机名单 dsh-companion.off，否则杀了 4 秒后又活
 # memory 的旧启动入口不能证明属于当前实例，只保留观测，不提供启停。
 
@@ -200,7 +200,7 @@ SERVICES = [
         "role": "私聊 · 群聊 · 人格 · 工具",
         "off_key": "bridge", "controllable": True, "restart_mode": "stopstart",
         "guard_bat": "start-bridge.bat",
-        "start": {"exe": "cmd.exe", "args": ["/c", r"<LOCAL_PATH>"], "cwd": r"<LOCAL_PATH>"},
+        "start": {"exe": "cmd.exe", "args": ["/c", r"C:\Users\34318\Apps\qq-bridge\start-bridge.bat"], "cwd": r"C:\Users\34318\Apps\qq-bridge"},
         "warn": "关掉后 QQ 里的鱼小满会完全消失（不再回消息）。不会掉登录，重启后接上。",
     },
     {
@@ -230,7 +230,7 @@ SERVICES = [
         # （点「启动」干等 25 秒必失败，按钮还是灰的）。这里补上直接启动命令，
         # 与 companion 的 Start-SnowLuma 完全一致（node index.mjs，cwd=SnowLuma）。
         "start": {"exe": r"E:\dsh\DSH NEXT\resources\runtime\x64\primary-runtime\dependencies\node\bin\node.exe",
-                  "args": ["index.mjs"], "cwd": r"<LOCAL_PATH>"},
+                  "args": ["index.mjs"], "cwd": r"C:\Users\34318\SnowLuma"},
         "warn": "协议端一停，QQ 就掉线。建议只在排障时关，关完用「启动」恢复。",
     },
     {
@@ -912,7 +912,7 @@ def _action(name: str, body: dict) -> dict:
     if name == "intent.simulate":
         # 只算分不落账，用来在调阈值之前先看一眼
         idle = float(body.get("idle_seconds") or 3600)
-        conv = str(body.get("conv") or "private:<OWNER_ID>")
+        conv = str(body.get("conv") or "private:3431816247")
         return {"result": srv.intent().decide(conv_key=conv, idle_seconds=idle, record=False)}
 
 
