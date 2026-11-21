@@ -51,7 +51,7 @@
 ### MCP（stdio）
 
 ```bash
-pip install memory_agent-0.3.0-py3-none-any.whl
+pip install memory_agent-0.3.0-py3-none-any.whl   # 装完包名是 memory_core
 ```
 
 启动前给四样环境变量：
@@ -71,9 +71,9 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 
 ### LangGraph、Claude Code 与函数工具
 
-- LangGraph 从 `memory_agent.adapters.langgraph` 导入 `MemoryStore`，调用 `graph.compile(store=MemoryStore())`。用 `search(...).as_dict()` 读取四态、证据和 `allowed_raw_ids`。
+- LangGraph 从 `memory_core.adapters.langgraph` 导入 `MemoryStore`，调用 `graph.compile(store=MemoryStore())`。用 `search(...).as_dict()` 读取四态、证据和 `allowed_raw_ids`。
 - Claude Code 用 `memory-hook` 接入 `SessionStart`、`UserPromptSubmit`、`Stop`，用于注入与记录。HTTP 后端按 Claude 会话 UUID 绑定。
-- OpenAI 风格工具使用 `memory_agent.adapters.tools.openai_tools()`，工具执行通过 `call_tool` 调用核心。
+- OpenAI 风格工具使用 `memory_core.adapters.tools.openai_tools()`，工具执行通过 `call_tool` 调用核心。
 
 查询失败显式返回 `memory_unavailable`。派生条目沿用核心提炼与审计。
 

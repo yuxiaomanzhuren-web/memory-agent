@@ -1,0 +1,14 @@
+numpy>=1.24
+jieba==0.42.1
+
+[dev]
+pytest>=8
+
+[http]
+cryptography>=42
+
+[langgraph]
+langgraph<2,>=0.2
+
+[mcp]
+mcp<2,>=1

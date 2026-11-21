@@ -41,7 +41,12 @@ ingest = importlib.import_module(PACKAGE + ".adapters.ingest")
 http = importlib.import_module(PACKAGE + ".adapters.http")
 transport = importlib.import_module(PACKAGE + ".adapters.http.client")
 tools = importlib.import_module(PACKAGE + ".adapters.tools")
-store_module = importlib.import_module(PACKAGE + ".adapters.langgraph")
+# langgraph 是可选依赖：缺了就置 None，整组测试由 OPTIONAL_STACK 跳过，
+# 不能让收集阶段就 ImportError（那样别人会以为整套测试坏了）。
+try:
+    store_module = importlib.import_module(PACKAGE + ".adapters.langgraph")
+except ImportError:
+    store_module = None
 citation = importlib.import_module(PACKAGE + ".adapters.citation")
 policy = importlib.import_module(PACKAGE + ".citation").CITATION_POLICY
 
