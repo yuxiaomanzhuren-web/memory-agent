@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from langgraph.store.base import BaseStore, GetOp, Item, ListNamespacesOp, PutOp, SearchItem, SearchOp
 
+from .citation import guard
 from .http.client import HTTPMemoryClient
 from .ingest import AgentRequestError, SCOPE_FIELDS
 
@@ -17,16 +18,21 @@ class SearchResults(list):
         self.state = result["state"]
         self.missing = result["missing"]
         self.allowed_raw_ids = list(result["allowed_raw_ids"])
+        self.citation_policy = result.get("citation_policy")
 
     def as_dict(self):
         return {"state": self.state, "items": [item.dict() for item in self],
-                "missing": self.missing, "allowed_raw_ids": self.allowed_raw_ids}
+                "missing": self.missing, "allowed_raw_ids": self.allowed_raw_ids,
+                "citation_policy": self.citation_policy}
 
 
 class MemoryStore(BaseStore):
     def __init__(self, client=None):
         self.client = client if client is not None else HTTPMemoryClient.from_env()
         self.namespace = tuple(self.client.conversation[field] for field in SCOPE_FIELDS)
+
+    def guard(self, reply, snapshot):
+        return guard(reply, snapshot, client=self.client)
 
     def batch(self, ops):
         out = []

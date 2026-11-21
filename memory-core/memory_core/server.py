@@ -1360,6 +1360,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"status": "error", "message": f"bad json: {exc}"})
             return
         try:
+            if self.path == "/citation/check":
+                if not TOKEN or self.headers.get("Authorization", "") != f"Bearer {TOKEN}":
+                    self._send(401, {"status": "error", "message": "unauthorized"})
+                    return
+                from .citation import citation_request
+                self._send(200, citation_request(data))
+                return
             if PORT==8781 and self.path=='/api/console/ledger/restore':
                 from .ledger_panel import handle
                 code,payload=handle(service(),'POST',self.path,data)

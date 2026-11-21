@@ -4,6 +4,8 @@ from __future__ import annotations
 from copy import deepcopy
 import logging
 
+from ..citation import citation_request
+from .citation import guard
 from .ingest import AgentRequestError, SCOPE_FIELDS, SOURCE_KINDS, unavailable
 
 CONVERSATION = {
@@ -12,7 +14,7 @@ CONVERSATION = {
     "required": list(SCOPE_FIELDS),
     "additionalProperties": False,
 }
-OPERATIONS = frozenset(("remember", "recall", "judge", "add", "search", "get", "delete", "recent"))
+OPERATIONS = frozenset(("remember", "recall", "judge", "add", "search", "get", "delete", "recent", "citation/check"))
 
 
 def tool_definitions():
@@ -59,6 +61,8 @@ def call_memory(memory, name, data):
         transport = getattr(memory, "call", None)
         if callable(transport):
             return transport(name, data)
+        if name == "citation/check":
+            return citation_request(data)
         if name == "add":
             if not isinstance(data, dict) or set(data) != {"text", "metadata"} or not isinstance(data["metadata"], dict):
                 raise AgentRequestError("invalid_add")
