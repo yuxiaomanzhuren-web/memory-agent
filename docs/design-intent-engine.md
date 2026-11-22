@@ -384,9 +384,9 @@ export async function askIntentV2(key, st) {
 
 维护方式：所有本地补丁在改动行上方加统一标记
 ```js
-// [LOCAL-PATCH:P4] 意图引擎 — 升级后需重打，见 $MEMORY_ROOT/docs/patches.md
+// [LOCAL-PATCH:P4] 意图引擎 — 升级后需重打，见部署方的本机运维笔记（不在本仓）
 ```
-并维护 `docs/patches.md` 记录：文件、行号特征、改动前/后、验证方式。
+并在部署方自己的运维笔记里记录：文件、行号特征、改动前/后、验证方式。
 **这是本方案能安全长期运行的前提**——否则一次升级全部失效且无告警。
 
 ### 7.4 开关
@@ -452,7 +452,7 @@ export async function askIntentV2(key, st) {
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
-| bridge 升级抹掉补丁 | 意图引擎静默失效 | `[LOCAL-PATCH:P4]` 标记 + `docs/patches.md` + 启动时打日志确认已加载 |
+| bridge 升级抹掉补丁 | 意图引擎静默失效 | `[LOCAL-PATCH:P4]` 标记 + 本机运维笔记 + 启动时打日志确认已加载 |
 | 打分过严 → 她变哑 | 体验退化 | shadow 3 天校准；阈值可热调 |
 | blocks 常驻吃 token | 每轮 +2k token | 5 块 × 1200 字上限；`open_loops` 只渲染前 5 条 |
 | 她改坏 relationship 块 | 关系认知错乱 | 版本历史可回滚；改动量超 50% 拒绝并告警 |
