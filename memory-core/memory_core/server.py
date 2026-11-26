@@ -1427,9 +1427,9 @@ class Handler(BaseHTTPRequestHandler):
                         elif self.path == '/memory/gates/audit':
                             out = gates.audit(data)
                         elif self.path == '/memory/gates':
-                            operation = {1: gates.one, 2: gates.two, 3: gates.three, 'inspect': gates.inspect}.get(data.get('gate'))
+                            operation = {1: gates.one, 2: gates.two, 4: gates.four, 'inspect': gates.inspect}.get(data.get('gate'))
                             if operation is None:
-                                raise ValueError('gate must be 1, 2, 3 or inspect')
+                                raise ValueError('gate must be 1, 2, 4 or inspect')
                             out = operation(data)
                         else:
                             self._send(404, {'status': 'error', 'message': 'unknown memory gate operation'})
@@ -1784,7 +1784,9 @@ def main():
             if control:
                 httpd.daemon_threads = False
             if PORT == 8781:
-                service()  # Prepare the writable store before accepting requests.
+                from .memory_gates import MemoryGates
+
+                MemoryGates(service()).migrate_budget()  # Finish upgrading before accepting requests.
             if PORT == 8781 and os.environ.get("MEMORY_PIPELINE_AUTO", "1") == "1":
                 from .memory_pipeline import run_pipeline
 

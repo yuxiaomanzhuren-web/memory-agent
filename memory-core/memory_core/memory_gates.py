@@ -1,4 +1,4 @@
-"""Three explicit memory gates; no model, raw writes, or changes to recall rules."""
+"""Core recall gates and proactive budget; no model or raw writes."""
 from __future__ import annotations
 from .source_provenance import normalize, rank, readable
 
@@ -37,17 +37,67 @@ GATE1_ASSISTANT_SAID = re.compile(
     rf'^(?P<before>{GATE1_TIME.pattern}|之前)?\s*你\s*(?P<after>{GATE1_TIME.pattern}|之前)?\s*'
     r'(?:(?:跟我|对我)\s*(?:说|讲)(?:过)?|(?:说|讲|提)过)', re.I)
 GATE1_SHELL = re.compile(r'我是不是说过|记不记得|还记得|记得吗|我说过|你说过|是不是|有没有|是否|说过|提过|讲过|聊过|说了|记得|我|你|吗|呢|吧|过')
-SCHEMA = '''
+_COST_SCHEMA = '''
 CREATE TABLE IF NOT EXISTS memory_gate_costs(
  scope TEXT NOT NULL,memory_id INTEGER NOT NULL,cost_type TEXT NOT NULL,
  raw_id TEXT NOT NULL,quote TEXT NOT NULL,reason TEXT NOT NULL,operator TEXT NOT NULL,
  resolved_at REAL,resolved_by TEXT,
- PRIMARY KEY(scope,memory_id));
-CREATE TABLE IF NOT EXISTS memory_gate3_log(
+ PRIMARY KEY(scope,memory_id))
+'''
+_GATE4_SCHEMA = '''
+CREATE TABLE IF NOT EXISTS memory_gate4_log(
  id INTEGER PRIMARY KEY,owner TEXT NOT NULL,scope TEXT NOT NULL,request_id TEXT NOT NULL,
  week_start REAL NOT NULL,at REAL NOT NULL,allowed INTEGER NOT NULL,
- reason_code TEXT NOT NULL,evidence TEXT NOT NULL,UNIQUE(scope,request_id));
+ reason_code TEXT NOT NULL,evidence TEXT NOT NULL,UNIQUE(scope,request_id))
 '''
+_GATE4_COLUMNS = (
+    ('id', 'INTEGER'), ('owner', 'TEXT'), ('scope', 'TEXT'), ('request_id', 'TEXT'),
+    ('week_start', 'REAL'), ('at', 'REAL'), ('allowed', 'INTEGER'),
+    ('reason_code', 'TEXT'), ('evidence', 'TEXT'),
+)
+
+
+def _validate_budget_schema(conn):
+    columns = [(row['name'], row['type'], row['notnull'], row['pk'])
+               for row in conn.execute('PRAGMA table_info(memory_gate4_log)')]
+    expected = [(name, kind, int(name != 'id'), int(name == 'id')) for name, kind in _GATE4_COLUMNS]
+    indexes = conn.execute('SELECT name FROM pragma_index_list(?) WHERE "unique"=1 AND partial=0',
+                           ('memory_gate4_log',))
+    if columns != expected or not any(
+        [tuple(column) for column in conn.execute(
+            'SELECT name, coll FROM pragma_index_xinfo(?) WHERE key=1 ORDER BY seqno', (index[0],))]
+        == [('scope', 'BINARY'), ('request_id', 'BINARY')] for index in indexes
+    ):
+        raise RuntimeError('invalid memory_gate4_log schema')
+
+
+def _migrate_budget(conn):
+    conn.execute('CREATE TABLE IF NOT EXISTS memory_gate4_migration(version INTEGER PRIMARY KEY)')
+    versions = [row[0] for row in conn.execute('SELECT version FROM memory_gate4_migration')]
+    if versions:
+        if versions != [1]:
+            raise RuntimeError('unsupported memory gate 4 migration version')
+        _validate_budget_schema(conn)
+        return
+
+    conn.execute(_COST_SCHEMA)
+    conn.execute(_GATE4_SCHEMA)
+    _validate_budget_schema(conn)
+    has_legacy = conn.execute("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='memory_gate3_log'").fetchone()
+    has_target_rows = conn.execute('SELECT 1 FROM memory_gate4_log LIMIT 1').fetchone()
+    columns = ', '.join(name for name, _ in _GATE4_COLUMNS)
+    if has_legacy:
+        legacy = f'SELECT {columns} FROM memory_gate3_log'
+        target = f'SELECT {columns} FROM memory_gate4_log'
+        if not has_target_rows:
+            conn.execute(f'INSERT INTO memory_gate4_log ({columns}) {legacy}')
+        # IDs are unique, so equality in both directions preserves row count and every owner's weekly usage.
+        if (conn.execute(f'SELECT 1 FROM ({legacy} EXCEPT {target}) LIMIT 1').fetchone()
+                or conn.execute(f'SELECT 1 FROM ({target} EXCEPT {legacy}) LIMIT 1').fetchone()):
+            raise RuntimeError('memory gate 4 migration history differs from the legacy log')
+    elif has_target_rows:
+        raise RuntimeError('memory gate 4 migration cannot verify history without the legacy log')
+    conn.execute('INSERT INTO memory_gate4_migration(version) VALUES (1)')
 
 
 def _text(data, name, limit=1000):
@@ -863,14 +913,18 @@ class MemoryGates:
         # A separate short SQLite transaction never commits another service request.
         with closing(sqlite3.connect(str(self.memory.store.path), timeout=1)) as conn:
             conn.row_factory = sqlite3.Row
-            conn.executescript(SCHEMA)
             conn.execute('BEGIN IMMEDIATE')
             try:
+                _migrate_budget(conn)
                 yield conn
                 conn.commit()
             except BaseException:
                 conn.rollback()
                 raise
+
+    def migrate_budget(self):
+        with self._write():
+            pass
 
     def cost(self, data):
         scope = scope_from(data)
@@ -894,7 +948,7 @@ class MemoryGates:
                          (scope_key(scope), row['id'], data['cost_type'], raw_id, ref['quote'], reason, operator))
         return dict(memory_id=row['id'], cost_type=data['cost_type'], source_ref=ref)
 
-    def three(self, data):
+    def four(self, data):
         scope, text = scope_from(data), _text(data, 'text')
         request_id = _text(data, 'request_id', 160)
         why_now = data.get('why_now')
@@ -907,7 +961,7 @@ class MemoryGates:
         owner = json.dumps([scope['bot_id'], scope['persona']], ensure_ascii=False)
         rows, records = self._load(scope, exclude_message_id=data.get('exclude_message_id'), exclude_raw_id=data.get('exclude_raw_id'))
         with self._write() as conn:
-            prior = conn.execute('SELECT 1 FROM memory_gate3_log WHERE scope=? AND request_id=?', (scope_key(scope), request_id)).fetchone()
+            prior = conn.execute('SELECT 1 FROM memory_gate4_log WHERE scope=? AND request_id=?', (scope_key(scope), request_id)).fetchone()
             if prior:
                 return dict(allowed=False, reason_code='duplicate_request', rendered='')
             evidence = None
@@ -936,20 +990,20 @@ class MemoryGates:
                     why_now=f"当前输入 {_date(context_ts)} 逐字提到「{obj} / {action}」；{why_now.strip()}")
                 code = 'allowed'
                 break
-            used = conn.execute('SELECT COUNT(*) FROM memory_gate3_log WHERE owner=? AND week_start=? AND allowed=1', (owner, week)).fetchone()[0]
+            used = conn.execute('SELECT COUNT(*) FROM memory_gate4_log WHERE owner=? AND week_start=? AND allowed=1', (owner, week)).fetchone()[0]
             if used >= 3:
                 code = 'weekly_limit'
             allowed = code == 'allowed'
-            conn.execute('INSERT INTO memory_gate3_log(owner,scope,request_id,week_start,at,allowed,reason_code,evidence) VALUES(?,?,?,?,?,?,?,?)',
+            conn.execute('INSERT INTO memory_gate4_log(owner,scope,request_id,week_start,at,allowed,reason_code,evidence) VALUES(?,?,?,?,?,?,?,?)',
                          (owner, scope_key(scope), request_id, week, now, int(allowed), code, json.dumps(evidence, ensure_ascii=False)))
         return dict(scope=scope, allowed=allowed, reason_code=code, used_this_week=used + int(allowed), limit=3,
                     week_start=_date(week), evidence=evidence if allowed else None,
-                    rendered=('[门三允许] ' + json.dumps(evidence, ensure_ascii=False)) if allowed else '')
+                    rendered=('[门四允许] ' + json.dumps(evidence, ensure_ascii=False)) if allowed else '')
 
     def audit(self, data):
         scope = scope_from(data)
         with self._write() as conn:
-            rows = [dict(r) for r in conn.execute('SELECT * FROM memory_gate3_log WHERE scope=? ORDER BY id DESC LIMIT 20', (scope_key(scope),))]
+            rows = [dict(r) for r in conn.execute('SELECT * FROM memory_gate4_log WHERE scope=? ORDER BY id DESC LIMIT 20', (scope_key(scope),))]
         return dict(scope=scope, decisions=rows)
 
     def inspect(self, data):

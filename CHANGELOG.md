@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-11-26
+
+按 MEMO-7 方案 B 决策，将原仓内门三术语与代码预算接口正式拆分为四道门并同步文档：
+
+- **门三与门四职责拆分**：门三统一定义为「引用清单冻结 + 发件前引用核验」（`memory_core.citation.check_reply`、`POST /citation/check`、`adapters/citation.py` `guard`）；主动重提出手预算独立为**门四**（`MemoryGates.four()`、`POST /memory/gates` `gate=4`）。
+- **配对切换与旧入口退役**：托管核心 8781 退役旧 `gate=3` 预算入口（授权请求返回 HTTP 400 且零预算记录），自有 QQ 桥的群聊主动开话题与 V2 主动唤醒同步切至 `gate=4`；`memory_gates_smoke.py` 与 `memory_temporal_smoke.py` 输出键统一为 `gate4`，不留旧键或入口别名。
+- **门四审计与历史复制**：新增 `memory_gate4_log` 与 `memory_gate4_migration` 表；8781 启动时在绑定端口后、接流就绪前于单事务内全量复制 `memory_gate3_log`（含允许与拒绝记录及去重键）并双向校验，支持幂等重跑，`POST /memory/gates/audit` 统一查询新表。
+- **文档对齐**：同步 `README.md` 现行术语、四道门定义、双路径架构图、HTTP 路由接入与审计说明。
+
 ## 0.3.1 — 2026-11-22
 
 - 与 0.3.0 代码完全一致，仅把版本号前进一格：0.3.0 的 Release 指向 `49621c1`，落后最新提交一个（缺 `99e6e5b` 的 mcp 主版本守卫）。正常安装 wheel 不受影响，但下载 Release 源码自建环境的人若预装 mcp 2.x，会看到 3 条误报的红。**不改已发布的标签**，用一个新版本把这件事说清楚。

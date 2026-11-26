@@ -4,10 +4,11 @@
 
 一条原话进来，系统把它拆成条目、连上关系；一次提问出去，系统先判断「该不该查」，再给出四种状态之一，并把缺口写清楚。
 
-> **当前状态（2026-11-21，一句话版）**
-> 冻结回放：门一 30/30、独立投题 23/31。真机连跑会漂，评测一律报冻结口径并附快照哈希。
+> **当前状态（2026-11-26，四道门口径对齐）**
+> 冻结回放：门一 30/30、独立投题 23/31（沿用 2026-11-21 冻结实跑基线）。真机连跑会漂，评测一律报冻结口径并附快照哈希。
 > 留出集已建 5 条，首次 1/5（3 条是标注错、2 条暴露真漏检）；**不做回填、不改标**。
-> 门三（引用硬拦截）已收进核心，QQ 桥接与独立语音走同一份 `check_reply`；MCP / HTTP / LangGraph 只给 `allowed_raw_ids`，投递由调用方负责。
+> 门三（引用清单冻结与发件前引用核验）已收进核心，QQ 桥接与独立语音走同一份 `check_reply`；MCP / HTTP / LangGraph 返回 `allowed_raw_ids`，投递由调用方负责。
+> 门四（主动重提出手预算）已从门三拆出并切至 `POST /memory/gates`（`gate=4`）与 `memory_gate4_log`，旧 `gate=3` 预算入口退役。
 
 ## 四态
 
@@ -20,13 +21,16 @@
 
 `absent` 和 `not_checked` 混用是最常见也最伤的错：一个说「没有」，一个说「我没找」。本系统把这两件事分开，并把「没查到什么」写进回答里。
 
-## 三道门
+## 四道门
 
 1. **门一 判定**：该不该查 → 查到什么 → 四态之一。
-2. **门二 来源资格**：同一条原话，本人说的、我转述的、别人说的，能说的话完全不同。
-3. **门三 引用清单**逐条核对引文。许可来自本轮实际注入的原话与同一会话近期符合资格的原话。
+2. **门二 来源资格**：同一条原话，本人说的、我转述的、别人说的，能说的话完全不同（来源分类 + 逐字重合核对）。
+3. **门三 引用清单**：覆盖**本轮清单冻结**与**发件前引用核验**。回复中的引文必须属于许可清单；许可来自本轮实际注入的原话与同一会话近期符合资格的原话。
+4. **门四 主动重提出手预算**：专管主动重提旧事的**生成前准入**。要求同作用域内存在与当前文本对象和动作逐字匹配的未消解成本记录（`错过` / `被拒` / `改口` / `认错`）及对应用户原话、新上下文晚于原话且不超前当前时间 5 秒、附非空且至多 300 字符的 `why_now`；按 `(scope, request_id)` 去重，按 `(bot_id, persona)` 在上海自然周（周一 00:00 起）内跨作用域累计放行上限 3 次，放行写日志（`memory_gate4_log`）即入账。
 
-门三由 core 统一核验。QQ 的对话文字和语音工具在发送或合成前调用它。LangGraph 和函数工具的宿主在发件前调用 `guard`。Claude Code 原生 Hook 负责注入与记录，Claude Agent SDK 由宿主在校验后投递。 [Claude Code Hook 参考](https://code.claude.com/docs/en/hooks#stop)
+门三由 core 统一核验（`check_reply` / `POST /citation/check`）。QQ 的对话文字和独立语音工具在发送或合成前调用它，端点不可用时停发草稿。LangGraph 和函数工具的宿主在发件前调用 `guard`。Claude Code 原生 Hook 负责注入与记录，Claude Agent SDK 由宿主在校验后投递。[Claude Code Hook 参考](https://code.claude.com/docs/en/hooks#stop)
+
+门四由托管核心 8781 的 `POST /memory/gates`（`gate=4`）提供，旧 `gate=3` 预算入口已退役（授权后返回 HTTP 400 且不写预算记录）。自有 QQ 桥的群聊主动开话题与 V2 主动唤醒在生成前调用门四，放行后仍经门三做发件前引用核验；被动回复路径不经过门四。
 
 铁律：上层不许越级编造。门不能编条目，条目不能编原文。
 
@@ -38,10 +42,11 @@
 ② 条目层   一句话一条（谁说的、何时、哪个范围、什么资格）
      ↓ 连线
 ③ 连线层   同话题 / 改口 / 同源
-     ↓ 被查询
-④ 判定层   四态与来源资格决定「能不能说、能怎么说」
-     ↓ QQ 桥接发出回复前
-   引用清单门核对「能引哪条」
+     ↓ 被查询 / 主动触发
+④ 判定层   门一（四态）与门二（来源资格）决定「能不能说、能怎么说」
+           主动重提路径在生成前经门四（出手预算，gate=4）准入并记账
+     ↓ 回复发出前（QQ 桥接 / 独立语音 / 宿主 guard）
+   门三（引用清单）按本轮冻结清单核对「能引哪条」，越界拦截或停发
 ```
 
 ## 接入
@@ -51,7 +56,7 @@
 ### MCP（stdio）
 
 ```bash
-pip install memory_agent-0.3.0-py3-none-any.whl   # 装完包名是 memory_core
+pip install memory_agent-0.4.0-py3-none-any.whl   # 装完包名是 memory_core
 ```
 
 启动前给四样环境变量：
@@ -83,7 +88,7 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 2. **会话 ID 不能带冒号**：`MEMORY_AGENT_CONVERSATION_ID` 只接受字母数字一类标识（例如 `100012345`），写 `private:100012345` 会报 `invalid_conversation`。
 3. **两端 scope 必须一致**：客户端与服务端的 `MEMORY_AGENT_SOURCE_ID` / `OWNER_ID` / `CONVERSATION_ID` 三个变量必须完全相同，不一致会报 `scope_forbidden`——这是范围隔离在起作用，不是 bug。
 
-另：`/ingest` 属于独立接入包自带的 HTTP 入口（`memory-agent-ingest`），不是主服务 8781 的路由；直接打 8781 的 `/ingest` 会得到 `not found`。
+另：`/ingest` 属于独立接入包自带的 HTTP 入口（`memory-agent-ingest`），不是主服务 8781 的路由；直接打 8781 的 `/ingest` 会得到 `not found`。主服务 8781 的门控与引用路由包括：`POST /citation/check`（门三发件前核验，Bearer 鉴权）、`POST /memory/gates`（`gate=1` 门一、`gate=2` 门二、`gate=4` 门四主动预算、`inspect` 组合查证；均需 Bearer + 范围凭据，旧 `gate=3` 返回 HTTP 400）、`POST /memory/gates/cost`（登记成本记录）与 `POST /memory/gates/audit`（查询同作用域最近 20 条门四预算审计）。
 
 ## 写入必须带什么
 
@@ -111,6 +116,8 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 1. 写账本失败**不能**让查询失败。
 2. 删除没留审计就**不许**删。
 
+门四主动重提预算决策单独写入 SQLite 表 `memory_gate4_log`（按 `(scope, request_id)` 去重，放行即入账；`POST /memory/gates/audit` 返回同作用域最近 20 条记录）。从旧版升级时，核心在绑定端口后、接流就绪前于单个事务内将 `memory_gate3_log` 全量历史（含允许与拒绝记录）复制到 `memory_gate4_log` 并双向校验，写入 `memory_gate4_migration(version=1)` 标记；迁移可幂等重跑，旧表保留为历史来源。
+
 ## 怎么跑测试
 
 所有测试都在 `memory-core/tests/`：
@@ -131,7 +138,8 @@ cd memory-core && python -m unittest discover -s tests -p "test_*.py"
 - 冷启动基线：全 `not_checked` 8 / 全 `absent` 11 / 全 `found` 7。
 - **留出集已建 5 条，首次跑 1/5**：其中 3 条是我的标注错（助手原话只能算线索），2 条暴露真漏检（「你记得…」句式没触发检索）。留出集不做回填、不改标。
 - 旧事召回仍是短板；改口样本 n=1，不足以报比率。
-- 门三的硬拦截在掌握投递的宿主接入后生效。MCP 和 HTTP 的记忆响应返回 `allowed_raw_ids` 与 `citation_policy`。宿主用本轮实际注入的出处调用 `/citation/check`，端点故障时停发草稿。LangGraph 与函数工具样例包含重新校验后的改写。
+- 门三（引用清单冻结与发件前引用核验）的硬拦截在掌握投递的宿主接入后生效。MCP 和 HTTP 的记忆响应返回 `allowed_raw_ids` 与 `citation_policy`。宿主用本轮实际注入的出处调用 `/citation/check`，端点故障时停发草稿。LangGraph 与函数工具样例包含重新校验后的改写。
+- 门四（主动重提出手预算）通过 `POST /memory/gates`（`gate=4`）与自有 QQ 桥配对切换，旧 `gate=3` 已退役返回 HTTP 400；两份冒烟（`memory_gates_smoke.py`、`memory_temporal_smoke.py`）输出键统一为 `gate4`。
 
 ## 许可
 

@@ -19,12 +19,13 @@ def fixture(clock=time.time):
             conn=getattr(memory.store.conn,'raw',memory.store.conn)
             scope=dict(bot_id='991111',persona='temporal-fixture',conv_key='private:992222')
             now=clock()
+            session='991111|private:992222'
 
             def remember(quote,stamp,text=None,**meta):
                 stamp=round(stamp,3)
-                rid=memory.raw.append('991111|private:992222','user',quote,ts=stamp)
+                rid=memory.raw.append(session,'user',quote,ts=stamp)
                 pipeline.notice({**scope,'raw_ids':[rid]})
-                ref=dict(raw_id=rid,raw_ts=stamp,quote=quote)
+                ref=dict(memory.raw.source_tags_for([rid],session)[0],raw_ts=stamp,quote=quote)
                 mid=memory.remember(dict(text=quote if text is None else text,kind='fact',created_at=stamp,
                     meta=dict(pipeline_scope=scope,source_refs=[ref],topic='咖啡偏好',**meta)))['id']
                 conn.execute('INSERT INTO memory_pipeline_owners(memory_id,scope) VALUES(?,?)',
@@ -71,7 +72,7 @@ def run_smoke():
         baseline=len(conn.execute('SELECT id FROM memory_links').fetchall())
         before=memory.engine.recall('咖啡',k=20,touch=False,rerank=False)
         assert {f['old'],f['new']} <= {r['id'] for r in before}
-        allowed=f['gates'].three({**f['scope'],'text':'咖啡加糖重新讨论','context_ts':time.time(),
+        allowed=f['gates'].four({**f['scope'],'text':'咖啡加糖重新讨论','context_ts':time.time(),
                                  'why_now':'现在提到咖啡加糖','request_id':'unresolved-positive-control'})
         assert allowed['allowed'] is True
         result=facts.supersede(f['proposal'])
@@ -85,7 +86,7 @@ def run_smoke():
         assert sum(r['id'] in (f['old'],f['new']) for r in current)==1
         chain=facts.chain({**f['scope'],'fact_key':f['proposal']['fact_key'],'include_history':True})
         assert len(chain['items'])==2 and f['oldref']['raw_id'] in chain['rendered'] and f['newref']['raw_id'] in chain['rendered']
-        denied=f['gates'].three({**f['scope'],'text':'咖啡加糖重新讨论','context_ts':time.time(),
+        denied=f['gates'].four({**f['scope'],'text':'咖啡加糖重新讨论','context_ts':time.time(),
                                  'why_now':'现在提到咖啡加糖','request_id':'resolved-cost-check'})
         assert denied['allowed'] is False and denied['reason_code']=='cost_resolved'
         plan=migration_plan(conn)
@@ -97,4 +98,4 @@ def run_smoke():
         return dict(result='TEMPORAL_SMOKE_OK',isolated=True,elapsed_seconds=round(time.monotonic()-started,3),
                     checks=dict(old_preserved=True,current_only=True,one_version_per_fact=True,
                                 readable_chain=True,resolved_cost_denied=True,migration_idempotent=True),
-                    gate3=denied,current_ids=[r['id'] for r in current])
+                    gate4=denied,current_ids=[r['id'] for r in current])

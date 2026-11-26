@@ -226,7 +226,7 @@ def joint_transition(older,newer,originals,object_anchor,required=()):
     from .memory_gates import _source_stance,_statement_parts
     for ref in (older,newer):
         text=originals[ref['raw_id']]
-        if (_source_stance(dict(r='user',t=text))['support_scope']!='可作主张依据'
+        if (_source_stance(ref)['support_scope']!='可作主张依据'
                 or not any(object_anchor in s and s.rstrip('。！？?!；;\n').strip() in ref['quote'] for s in _statement_parts(text))):
             return False
     text=originals[newer['raw_id']]
