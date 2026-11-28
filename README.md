@@ -107,6 +107,7 @@ MEMORY_AGENT_DATA_DIR=/path/to/data
 
 - `TurnRecall.recall(data)` 默认只读。数据快照、范围、查询与时钟相同时，按匹配分、重要度、原话时间、ID 排序，最多返回三条。该路径支持已用 SQLite `mode=ro` 打开的数据库，来源诊断保留在结果中，来源 trace 文件不写入。
 - 托管的 `/recall_for_turn` 显式启用唤醒浮起。普通话题命中会记录到 `memory_surface_log`，同一会话内两小时内浮起过的条目会跳过。结果会随浮起记录与时间变化。日期、逐字原话和明确回忆查询沿用查证路径。
+- 按预批原文 ID 导出本机隔离副本的登记、鉴权和复跑方法见 [受管只读快照导出](docs/managed-snapshot.md)。
 - 浮起表与 `idx_surface_log` 在可写存储初始化时创建。浮起记录保存范围、条目 ID、时间和选中理由。MCP 的 `recall` 还会执行门一，并按约定写判定账本。离线只读评测使用核心查证路径。
 
 ## 可审计
