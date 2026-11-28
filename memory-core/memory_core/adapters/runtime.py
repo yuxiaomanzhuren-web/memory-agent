@@ -70,8 +70,12 @@ def open_memory():
     data_dir = os.environ.get("MEMORY_AGENT_DATA_DIR")
     if not data_dir:
         raise AgentRequestError("data_directory_required")
-    model = configured_model()
     directory = Path(data_dir).expanduser().resolve()
+    from ..isolated_scope import is_managed_area
+
+    if is_managed_area(directory):
+        raise AgentRequestError("managed_archive_requires_isolated_serve", 409)
+    model = configured_model()
     with archive_lock(directory):
         configure_trace(directory / "source-provenance.jsonl")
         memory = AgentMemory(directory, conversation, model=model)
